@@ -18,6 +18,14 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import re
+from os import path
+from string import Template
+from mathutils import Vector, Matrix
+import bmesh
+import bpy
+
+
 bl_info = {
     "name": "CAD Fasteners",
     "author": "Marcel Toele",
@@ -30,17 +38,31 @@ bl_info = {
     "category": "3D View",
 }
 
-import bpy
-import bmesh
-
-from mathutils import Vector, Matrix
 
 ############# Generic Python Utility Functions ##############
+
 
 def flatten(t):
     return [item for sublist in t for item in sublist]
 
+
+def all_vars(cls):
+    """"Get all non-callable vars, including inherited vars"""
+    def all_members(cls):
+        # Try getting all relevant classes in method-resolution order
+        mro = list(cls.__mro__)
+        mro.reverse()
+        members = {}
+        for someClass in mro:
+            members.update(vars(someClass))
+        return members
+
+    return dict(filter(lambda e: not (e[0].startswith("__") or callable(
+        getattr(cls, e[0]))), all_members(cls).items()))
+
+
 ############ Generic Blender Utility Functions #############
+
 
 def collection_delete(col):
     for ob in col.objects:
@@ -48,6 +70,7 @@ def collection_delete(col):
     for c in col.children:
         collection_delete(c)
     bpy.data.collections.remove(col, do_unlink=True)
+
 
 def depsgraph_update_objects_find(update):
     objects = []
@@ -59,6 +82,7 @@ def depsgraph_update_objects_find(update):
 
     return objects
 
+
 def object_transform_apply(ob):
     # Transform the mesh using the matrix world
     ob.matrix_world = Matrix.Diagonal(Vector((*ob.scale, 1.0)))
@@ -66,11 +90,18 @@ def object_transform_apply(ob):
     # Reset matrix to identity
     ob.matrix_world = Matrix()
 
+
+def property_group_as_dict_get(pg):
+    return dict(map(lambda e: (e, getattr(pg, e)), dict(pg).keys()))
+
+
 ############ CAD Fasteners Blender Utility Functions #############
 
-from os import path
+
 CAD_FASTENERS_BLEND_FILENAME = "cad_fasteners.blend"
-CAD_FASTENERS_BLEND_FILEPATH = path.join(path.dirname(__file__), CAD_FASTENERS_BLEND_FILENAME)
+CAD_FASTENERS_BLEND_FILEPATH = path.join(
+    path.dirname(__file__), CAD_FASTENERS_BLEND_FILENAME)
+
 
 def cad_fast_collection_import(col_parent, col_name):
     # load collection from templates file
@@ -80,90 +111,28 @@ def cad_fast_collection_import(col_parent, col_name):
     # link collection to parent collection
     col_parent.children.link(data_to.collections[0])
 
+
 def cad_fast_template_collection_ensure():
     if bpy.data.filepath.endswith(CAD_FASTENERS_BLEND_FILENAME):
         return
 
     if not "CAD Fastener Templates" in bpy.data.collections:
-        cad_fast_collection_import(bpy.context.scene.collection, "CAD Fastener Templates")
+        cad_fast_collection_import(
+            bpy.context.scene.collection, "CAD Fastener Templates")
     elif "CAD Fastener Master Templates" in bpy.data.collections:
         col_master = bpy.data.collections["CAD Fastener Master Templates"]
         collection_delete(col_master)
 
-        cad_fast_collection_import(bpy.data.collections["CAD Fastener Templates"], "CAD Fastener Master Templates")
+        cad_fast_collection_import(
+            bpy.data.collections["CAD Fastener Templates"], "CAD Fastener Master Templates")
 
-from string import Template
 
 def cad_fast_object_template_ensure(ob=None):
 
-    def without_trailing_zero(diam):
-        return ('%.1f' % diam).replace('.0', '')
+    cad_fast_type = CAD_FAST_STD_TYPES[ob.cad_fast.standard] if ob is not None else CAD_FAST_STD_TYPES['ISO_7380-1']
 
-    cad_fast_template_collection_ensure()
+    return cad_fast_type.template_ensure(ob)
 
-    if ob != None:
-        standard = ob.cad_fast.standard
-        size_designator = ob.cad_fast.size_designator
-        length = float(ob.cad_fast.length)
-    else:
-        standard = 'ISO_7380-1'
-        size_designator = 'M3'
-        length = 5
-
-    diam = float(size_designator[1:])
-
-    standard_info = CAD_FAST_STD_DB[standard]
-    drive_type = standard_info['drive_type'] if 'drive_type' in standard_info else None
-    drive_offset = standard_info['drive_offset'] if 'drive_offset' in standard_info else 0
-    head_type = standard_info['head_type'] if 'head_type' in standard_info else None
-    has_length = standard_info['has_length'] if 'has_length' in standard_info else False
-    master_template = standard_info['master_template'] if 'master_template' in standard_info else 'M5 Screw Template'
-    name_template = standard_info['name_template'] if 'name_template' in standard_info else 'M${diam}X${length} ${drive_type} ${head_type} Screw'
-
-    ob_fastener_name = Template(name_template).substitute(
-        diam=without_trailing_zero(diam),
-        length=without_trailing_zero(length),
-        drive_type=drive_type,
-        head_type=head_type)
-    ob_fastener_tpl_name = '%s.tpl' % (ob_fastener_name)
-
-    if not ob_fastener_tpl_name in bpy.data.objects:
-        ob_fastener_tpl =  bpy.data.objects[master_template].copy()
-        ob_fastener_tpl.name = ob_fastener_tpl_name
-        ob_fastener_tpl.data = ob_fastener_tpl.data.copy()
-        if has_length:
-            ob_fastener_tpl.dimensions = Vector((5, 5, (5 / diam) * length))
-            object_transform_apply(ob_fastener_tpl)
-        ob_fastener_tpl.hide_viewport = False
-        col_fasteners = bpy.data.collections["CAD Fastener Templates"]
-        col_fasteners.objects.link(ob_fastener_tpl)
-
-        if head_type != None:
-            ob_fastener_tpl.modifiers["Head Type"].object = bpy.data.objects[head_type]
-        if drive_type != None:
-            ob_fastener_tpl.modifiers["Drive Type"].object = bpy.data.objects[drive_type]
-            bpy.data.objects[drive_type].location.z = drive_offset
-
-        bme = bmesh.new()
-        ob_evaluated = ob_fastener_tpl.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        bme.from_mesh(ob_evaluated.data)
-        ob_fastener_tpl.modifiers.clear()
-        bme.to_mesh(ob_fastener_tpl.data)
-        bme.free()
-
-        ob_fastener_tpl.scale = (diam/5, diam/5, diam/5)
-        object_transform_apply(ob_fastener_tpl)
-
-        ob_fastener_tpl.hide_viewport = True
-
-        # Update cad_fast props:
-        cad_fast_prop_set(ob_fastener_tpl, 'is_fastener', True)
-        cad_fast_prop_set(ob_fastener_tpl, 'standard', standard)
-        cad_fast_prop_set(ob_fastener_tpl, 'size_designator', size_designator)
-        if has_length:
-            cad_fast_prop_set(ob_fastener_tpl, 'length', str(int(length)))
-
-    return bpy.data.objects[ob_fastener_tpl_name]
 
 def cad_fast_object_update(ob_fastener, ob_fastener_tpl):
     ob_fastener.name = ob_fastener_tpl.name[:-4]
@@ -171,14 +140,17 @@ def cad_fast_object_update(ob_fastener, ob_fastener_tpl):
     ob_fastener.data = ob_fastener_tpl.data
 
     # For existing objects, we set the scaling to 1:
-    ob_fastener.scale = (1,1,1)
+    ob_fastener.scale = (1, 1, 1)
     # And clear all modifiers:
     ob_fastener.modifiers.clear()
 
     if me_old.users == 0:
         bpy.data.meshes.remove(me_old, do_unlink=True)
 
+
 internal_update = False
+
+
 def cad_fast_prop_set(ob_fastener, prop_name, prop_value):
     global internal_update
 
@@ -189,7 +161,6 @@ def cad_fast_prop_set(ob_fastener, prop_name, prop_value):
 
 ############# Blender Event Handlers ##############
 
-import re
 
 def on_object_cad_fast_prop_updated(self, context):
     if internal_update:
@@ -206,9 +177,11 @@ def on_object_cad_fast_prop_updated(self, context):
 
         # Clean up stale fastener template objects:
         obs_tpl = bpy.data.collections['CAD Fastener Templates'].objects
-        obs_tpl_stale = [ob_tpl for ob_tpl in obs_tpl if ob_tpl.name.endswith(".tpl") and ob_tpl.data.users == 1]
+        obs_tpl_stale = [ob_tpl for ob_tpl in obs_tpl if ob_tpl.name.endswith(
+            ".tpl") and ob_tpl.data.users == 1]
         for ob_tpl_stale in obs_tpl_stale:
             bpy.data.objects.remove(ob_tpl_stale, do_unlink=True)
+
 
 def on_object_cad_fast_is_fastener_prop_updated(self, context):
     if internal_update:
@@ -231,70 +204,257 @@ def on_object_cad_fast_is_fastener_prop_updated(self, context):
 
         on_object_cad_fast_prop_updated(self, context)
 
+
 ############# Blender Extension Classes ##############
+
+
+# Better than int(x), because:
+#   x   |   int(x)   |   without_trailing_zero(x)
+#  1.0  |     1      |            1
+#  2.5  |     2      |           2.5
+def without_trailing_zero(x):
+    return ('%.1f' % x).replace('.0', '')
+
+
+class Fastener:
+    name_template = 'Fastener'
+    has_length = False
+
+    @classmethod
+    def template_name_get(cls, ob=None):
+        all_cls_vars = all_vars(cls)
+        all_ob_vars = property_group_as_dict_get(
+            ob.cad_fast) if ob is not None else {}
+        all_tpl_vars = {}
+        all_tpl_vars.update(all_cls_vars)
+        all_tpl_vars.update(all_ob_vars)
+        return '%s.tpl' % Template(cls.name_template).substitute(**all_tpl_vars)
+
+    @classmethod
+    def attr(cls, ob, name):
+        return getattr(ob.cad_fast, name) if ob is not None and name in ob.cad_fast else all_vars(cls)[name]
+
+    @classmethod
+    def template_ensure(cls, ob=None):
+
+        cad_fast_template_collection_ensure()
+
+        ob_fastener_tpl_name = cls.template_name_get(ob)
+
+        # print("template_ensure", ob_fastener_tpl_name)
+
+        if not ob_fastener_tpl_name in bpy.data.objects:
+            # print("  `--> does not exist: Creating...")
+            ob_fastener_tpl = bpy.data.objects[cls.master_template].copy()
+            ob_fastener_tpl.name = ob_fastener_tpl_name
+            ob_fastener_tpl.data = ob_fastener_tpl.data.copy()
+
+            cls.construct(ob_fastener_tpl, ob)
+
+            ob_fastener_tpl.hide_viewport = False
+            col_fasteners = bpy.data.collections["CAD Fastener Templates"]
+            col_fasteners.objects.link(ob_fastener_tpl)
+
+            bme = bmesh.new()
+            ob_evaluated = ob_fastener_tpl.evaluated_get(
+                bpy.context.evaluated_depsgraph_get())
+            bme.from_mesh(ob_evaluated.data)
+            ob_fastener_tpl.modifiers.clear()
+            bme.to_mesh(ob_fastener_tpl.data)
+            bme.free()
+
+            cls.scale(ob_fastener_tpl, ob)
+
+            ob_fastener_tpl.hide_viewport = True
+
+            # Update cad_fast props:
+            cad_fast_prop_set(ob_fastener_tpl, 'is_fastener', True)
+            cad_fast_prop_set(ob_fastener_tpl, 'standard', cls.standard)
+            print("WTF sizedes", cls.attr(ob, "size_designator"))
+            cad_fast_prop_set(
+                ob_fastener_tpl, 'size_designator', cls.attr(ob, "size_designator"))
+            if cls.has_length:
+                cad_fast_prop_set(ob_fastener_tpl, 'length',
+                                  str(cls.attr(ob, "length")))
+
+        return bpy.data.objects[ob_fastener_tpl_name]
+
+
+class Metric:
+    # default size_designator
+    size_designator = 'M3'
+
+    @classmethod
+    def diameter_get(cls, ob):
+        return float(cls.attr(ob, "size_designator")[1:])
+
+
+class Screw(Fastener):
+    name_template = '${size_designator}X${length} ${drive_type} ${head_type} Screw'
+    has_length = True
+    # default length
+    length = 8
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        diam = cls.diameter_get(ob)
+        length = float(cls.attr(ob, "length"))
+
+        # if has_length:
+        ob_fastener_tpl.dimensions = Vector(
+            (5, 5, (5 / diam) * length))
+        object_transform_apply(ob_fastener_tpl)
+        # if head_type != None:
+        ob_fastener_tpl.modifiers["Head Type"].object = bpy.data.objects[cls.head_type]
+        # if drive_type != None:
+        ob_fastener_tpl.modifiers["Drive Type"].object = bpy.data.objects[cls.drive_type]
+        bpy.data.objects[cls.drive_type].location.z = cls.drive_offset
+
+    @classmethod
+    def scale(cls, ob_fastener_tpl, ob):
+        diam = cls.diameter_get(ob)
+        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+        object_transform_apply(ob_fastener_tpl)
+
+
+class MetricScrew(Screw, Metric):
+    master_template = 'M5 Screw Template'
+
+
+class ButtonHead:
+    head_type = 'Button Head'
+    drive_offset = 0
+
+
+class CountersunkHead:
+    head_type = 'Countersunk Head'
+    drive_offset = -2.8
+
+
+class ISO_7380_1(MetricScrew, ButtonHead):
+    standard = 'ISO_7380-1'
+    drive_type = 'Hex Socket'
+
+
+class ISO_7380_TX(MetricScrew, ButtonHead):
+    standard = 'ISO_7380-TX'
+    drive_type = 'Torx'
+
+
+class ISO_10642(MetricScrew, CountersunkHead):
+    standard = 'ISO_10642'
+    drive_type = 'Hex Socket'
+
+
+class ISO_10642_TX(MetricScrew, CountersunkHead):
+    standard = 'ISO_10642-TX'
+    drive_type = 'Torx'
+
+
+class Washer(Fastener):
+    name_template = '${size_designator} Washer'
+    has_length = False
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        pass
+
+    @classmethod
+    def scale(cls, ob_fastener_tpl, ob):
+        diam = cls.diameter_get(ob)
+        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+        object_transform_apply(ob_fastener_tpl)
+
+
+class MetricWasher(Washer, Metric):
+    master_template = 'M5 Washer (DIN 125A)'
+
+
+class DIN_125A(MetricWasher):
+    standard = 'DIN_125A'
+
+
+class Nut(Fastener):
+    name_template = '${size_designator} Nut'
+    has_length = False
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        pass
+
+    @classmethod
+    def scale(cls, ob_fastener_tpl, ob):
+        diam = cls.diameter_get(ob)
+        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+        object_transform_apply(ob_fastener_tpl)
+
+
+class MetricNut(Nut, Metric):
+    master_template = 'M5 Nut (DIN 934)'
+
+
+class DIN_934_1(MetricNut):
+    standard = 'DIN_934-1'
+
 
 # (identifier, name, description, icon, number)
 CAD_FAST_STD_ENUM = [
-    ('ISO_7380-1', "Hex Button Head (ISO 7380-1)", 'A Metric screw with a Button head and a Hex Socket drive'),
-    ('ISO_10642', "Hex Countersunk (ISO 10642)", 'A Metric screw with a Countersunk head and a Hex drive'),
-    ('ISO_7380-TX', "Torx Button Head (ISO 7380-TX)", 'A Metric screw with a Button head and a Torx drive'),
-    ('ISO_10642-TX', "Torx Countersunk (ISO 10642-TX)", 'A Metric screw with a Countersunk head and a Torx drive'),
+    ('ISO_7380-1', "Hex Button Head (ISO 7380-1)",
+     'A Metric screw with a Button head and a Hex Socket drive'),
+    ('ISO_10642', "Hex Countersunk (ISO 10642)",
+     'A Metric screw with a Countersunk head and a Hex drive'),
+    ('ISO_7380-TX', "Torx Button Head (ISO 7380-TX)",
+     'A Metric screw with a Button head and a Torx drive'),
+    ('ISO_10642-TX', "Torx Countersunk (ISO 10642-TX)",
+     'A Metric screw with a Countersunk head and a Torx drive'),
     ('DIN_125A', "Washer (DIN 125A)", 'A Metric washer'),
-    ('DIN_934', "Nut (DIN 934)", 'A Metric nut'),
+    ('DIN_934-1', "Nut (DIN 934-1)", 'A Metric nut'),
 ]
 
-CAD_FAST_HEAD_TYPES = (
-    'Button Head',
-)
-
-CAD_FAST_DRIVE_TYPES = (
-    'Hex Socket',
-    'Torx',
-)
-
-CAD_FAST_THREAD_TYPES = (
-    'METRIC',
-    'UNC',
-    'UNF',
-    'BSW',
-)
-
-CAD_FAST_SCREW_NAME_TEMPLATE='M${diam}X${length} ${drive_type} ${head_type} Screw'
-CAD_FAST_STD_DB = {
-    'ISO_7380-1': {'head_type': 'Button Head', 'drive_type': 'Hex Socket', 'drive_offset': 0, 'thread_type': 'METRIC', 'has_length': True, 'master_template': 'M5 Screw Template', 'name_template': CAD_FAST_SCREW_NAME_TEMPLATE},
-    'ISO_10642': {'head_type': 'Countersunk Head', 'drive_type': 'Hex Socket', 'drive_offset': -2.8, 'thread_type': 'METRIC', 'has_length': True, 'master_template': 'M5 Screw Template', 'name_template': CAD_FAST_SCREW_NAME_TEMPLATE},
-    'ISO_7380-TX': {'head_type': 'Button Head', 'drive_type': 'Torx', 'drive_offset': 0, 'thread_type': 'METRIC', 'has_length': True, 'master_template': 'M5 Screw Template', 'name_template': CAD_FAST_SCREW_NAME_TEMPLATE},
-    'ISO_10642-TX': {'head_type': 'Countersunk Head', 'drive_type': 'Torx', 'drive_offset': -2.8, 'thread_type': 'METRIC', 'has_length': True, 'master_template': 'M5 Screw Template', 'name_template': CAD_FAST_SCREW_NAME_TEMPLATE},
-    'DIN_125A': {'has_length': False, 'master_template': 'M5 Washer (DIN 125A)', 'name_template': 'M${diam} Washer'},
-    'DIN_934': {'has_length': False, 'master_template': 'M5 Nut (DIN 934)', 'name_template': 'M${diam} Nut'},
+CAD_FAST_STD_TYPES = {
+    'ISO_7380-1': ISO_7380_1,
+    'ISO_7380-TX': ISO_7380_TX,
+    'ISO_10642': ISO_10642,
+    'ISO_10642-TX': ISO_10642_TX,
+    'DIN_125A': DIN_125A,
+    'DIN_934-1': DIN_934_1,
 }
 
 CAD_FAST_METRIC_SIZES_IN = [
-    ('M2',   (3,4,5,6,7,8,10,12,14,16,18,20,25,30)),
-    ('M2.5', (3,4,5,6,7,8,10,12,14,16,18,20,25,30)),
-    ('M3',   (4,5,6,7,8,10,12,14,16,18,20,25,30,35,40,45,50)),
-    ('M4',   (5,6,8,10,12,14,16,18,20,25,30,35,40,45,50,55,60)),
-    ('M5',   (6,8,10,12,14,16,18,20,25,30,35,40,45,50,55,60,65,70,75,80)),
-    ('M6',   (8,10,12,14,16,18,20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
-    ('M8',   (12,14,16,18,20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
-    ('M10',  (16,18,20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
-    ('M12',  (20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
-    ('M14',  (20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
-    ('M16',  (20,25,30,35,40,45,50,55,60,65,70,75,80,90,100,120)),
+    ('M2', (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30)),
+    ('M2.5', (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30)),
+    ('M3', (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50)),
+    ('M4', (5, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60)),
+    ('M5', (6, 8, 10, 12, 14, 16, 18, 20, 25,
+            30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80)),
+    ('M6', (8, 10, 12, 14, 16, 18, 20, 25, 30, 35,
+            40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
+    ('M8', (12, 14, 16, 18, 20, 25, 30, 35, 40,
+            45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
+    ('M10', (16, 18, 20, 25, 30, 35, 40, 45,
+             50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
+    ('M12', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
+    ('M14', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
+    ('M16', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
 ]
 
-CAD_FAST_METRIC_SIZES = dict(list(map(lambda e: (e[0], list(map(lambda l: (str(l), str(l), ''), e[1]))), CAD_FAST_METRIC_SIZES_IN)))
-CAD_FAST_METRIC_D_ENUM = list(map(lambda e: (e[0], e[0], ''), CAD_FAST_METRIC_SIZES_IN))
+CAD_FAST_METRIC_SIZES = dict(list(map(lambda e: (e[0], list(
+    map(lambda l: (str(l), str(l), ''), e[1]))), CAD_FAST_METRIC_SIZES_IN)))
+CAD_FAST_METRIC_D_ENUM = list(
+    map(lambda e: (e[0], e[0], ''), CAD_FAST_METRIC_SIZES_IN))
+
 
 def cad_fast_d_items_get(self, context):
     cad_fast_props = self
 
     return CAD_FAST_METRIC_D_ENUM
 
+
 def cad_fast_l_items_get(self, context):
     cad_fast_props = self
 
     return CAD_FAST_METRIC_SIZES[cad_fast_props.size_designator]
+
 
 class CAD_FAST_ObjectProperties(bpy.types.PropertyGroup):
     is_fastener: bpy.props.BoolProperty(
@@ -319,6 +479,7 @@ class CAD_FAST_ObjectProperties(bpy.types.PropertyGroup):
         items=cad_fast_l_items_get,
         update=on_object_cad_fast_prop_updated
     )
+
 
 class CAD_FAST_OT_AddNew(bpy.types.Operator):
     bl_idname = "fastener.add"
@@ -357,6 +518,7 @@ class CAD_FAST_OT_AddNew(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
 class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -381,12 +543,13 @@ class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
                 box.row().prop(ob.cad_fast, 'standard', text="")
                 row = box.row()
 
-                if CAD_FAST_STD_DB[ob.cad_fast.standard]['has_length']:
+                if CAD_FAST_STD_TYPES[ob.cad_fast.standard].has_length:
                     row.column().prop(ob.cad_fast, 'size_designator', text='')
                     row.column().label(text=' x ')
                     row.column().prop(ob.cad_fast, 'length', text='')
                 else:
                     row.column().prop(ob.cad_fast, 'size_designator', text='Size')
+
 
 classes = [
     CAD_FAST_ObjectProperties,
@@ -394,11 +557,15 @@ classes = [
     CAD_FAST_PT_ObjectPanel
 ]
 
+
 ############# Register/Unregister Hooks ##############
+
 
 # Per 2.90 Operators have to be in a menu to be searchable
 def menu_func(self, context):
-    self.layout.operator(CAD_FAST_OT_AddNew.bl_idname, text="Fastener", icon='PROP_CON')
+    self.layout.operator(CAD_FAST_OT_AddNew.bl_idname,
+                         text="Fastener", icon='PROP_CON')
+
 
 def register():
     for c in classes:
@@ -406,7 +573,9 @@ def register():
 
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
 
-    bpy.types.Object.cad_fast = bpy.props.PointerProperty(name="CAD Fasteners Object Properties", type=CAD_FAST_ObjectProperties)
+    bpy.types.Object.cad_fast = bpy.props.PointerProperty(
+        name="CAD Fasteners Object Properties", type=CAD_FAST_ObjectProperties)
+
 
 def unregister():
     for c in classes:
