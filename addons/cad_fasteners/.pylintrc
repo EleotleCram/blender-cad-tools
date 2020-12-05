@@ -142,6 +142,7 @@ disable=print-statement,
         missing-function-docstring,
         missing-class-docstring,
         too-few-public-methods,
+        no-value-for-parameter,
         no-member,
         invalid-name,
         comprehension-escape

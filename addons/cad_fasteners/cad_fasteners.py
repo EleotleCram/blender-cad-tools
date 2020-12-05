@@ -270,7 +270,6 @@ class Fastener:
             # Update cad_fast props:
             cad_fast_prop_set(ob_fastener_tpl, 'is_fastener', True)
             cad_fast_prop_set(ob_fastener_tpl, 'standard', cls.standard)
-            print("WTF sizedes", cls.attr(ob, "size_designator"))
             cad_fast_prop_set(
                 ob_fastener_tpl, 'size_designator', cls.attr(ob, "size_designator"))
             if cls.has_length:
@@ -384,8 +383,21 @@ class Nut(Fastener):
 
     @classmethod
     def scale(cls, ob_fastener_tpl, ob):
-        diam = cls.diameter_get(ob)
-        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+        size_designator = cls.attr(ob, "size_designator")
+        dimensions = cls.dimensions[size_designator]
+        scale = Vector()
+
+        # Collect X-Y scale
+        ob_fastener_tpl.dimensions.x = dimensions['s']
+        scale.x = ob_fastener_tpl.scale.x
+        scale.y = scale.x
+
+        # Collect Z scale
+        ob_fastener_tpl.dimensions.z = dimensions['m']
+        scale.z = ob_fastener_tpl.scale.z
+
+        # Apply scale
+        ob_fastener_tpl.scale = scale
         object_transform_apply(ob_fastener_tpl)
 
 
@@ -394,7 +406,23 @@ class MetricNut(Nut, Metric):
 
 
 class DIN_934_1(MetricNut):
+    # Link: https://drive.google.com/file/d/1G7Et-bce98nLzvAG2R9oFskMq9HqILlK/view?usp=sharing
     standard = 'DIN_934-1'
+    dimensions = {
+        # autopep8: off
+        'M2':   {'s': 4,   'm': 1.6},
+        'M2.5': {'s': 5,   'm': 2},
+        'M3':   {'s': 5.5, 'm': 2.4},
+        'M4':   {'s': 7,   'm': 3.2},
+        'M5':   {'s': 8,   'm': 4},
+        'M6':   {'s': 10,  'm': 5},
+        'M8':   {'s': 13,  'm': 6.5},
+        'M10':  {'s': 17,  'm': 8},
+        'M12':  {'s': 19,  'm': 10},
+        'M14':  {'s': 22,  'm': 11},
+        'M16':  {'s': 24,  'm': 13},
+        # autopep8: on
+    }
 
 
 # (identifier, name, description, icon, number)
