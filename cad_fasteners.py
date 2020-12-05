@@ -166,6 +166,13 @@ def cad_fast_prop_set(ob_fastener, prop_name, prop_value):
 
 
 def on_object_cad_fast_prop_updated(self, context):
+    def unset_display_props(ob):
+        ob.data.property_unset("auto_smooth_angle")
+
+        # 'Satisfier' compromise:
+        if 'cad_outline' in ob:
+            ob.cad_outline.property_unset("sharp_angle")
+
     if internal_update:
         return
 
@@ -174,6 +181,7 @@ def on_object_cad_fast_prop_updated(self, context):
     ob = context.active_object
 
     if ob != None and ob.cad_fast.is_fastener:
+        unset_display_props(ob)
         ob_fastener = ob
         ob_fastener_tpl = cad_fast_object_template_ensure(ob)
         cad_fast_object_update(ob_fastener, ob_fastener_tpl)
