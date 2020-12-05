@@ -287,8 +287,11 @@ class Fastener:
                 cad_fast_prop_set(ob_fastener_tpl, 'length',
                                   str(cls.attr(ob, "length")))
 
-            if 'update' in all_members(cls) and callable(cls.update):
-                cls.update(ob_fastener_tpl, ob)
+        ob_fastener_tpl = bpy.data.objects[ob_fastener_tpl_name]
+
+        # CAVEAT REFACTOR: This must happen always, so existing objects can be finetuned:
+        if 'update' in all_members(cls) and callable(cls.update):
+            cls.update(ob_fastener_tpl, ob)
 
         return bpy.data.objects[ob_fastener_tpl_name]
 
