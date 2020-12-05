@@ -270,7 +270,6 @@ class Fastener:
             # Update cad_fast props:
             cad_fast_prop_set(ob_fastener_tpl, 'is_fastener', True)
             cad_fast_prop_set(ob_fastener_tpl, 'standard', cls.standard)
-            print("WTF sizedes", cls.attr(ob, "size_designator"))
             cad_fast_prop_set(
                 ob_fastener_tpl, 'size_designator', cls.attr(ob, "size_designator"))
             if cls.has_length:
