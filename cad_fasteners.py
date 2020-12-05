@@ -46,16 +46,18 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
+def all_members(cls):
+    # Try getting all relevant classes in method-resolution order
+    mro = list(cls.__mro__)
+    mro.reverse()
+    members = {}
+    for someClass in mro:
+        members.update(vars(someClass))
+    return members
+
+
 def all_vars(cls):
     """"Get all non-callable vars, including inherited vars"""
-    def all_members(cls):
-        # Try getting all relevant classes in method-resolution order
-        mro = list(cls.__mro__)
-        mro.reverse()
-        members = {}
-        for someClass in mro:
-            members.update(vars(someClass))
-        return members
 
     return dict(filter(lambda e: not (e[0].startswith("__") or callable(
         getattr(cls, e[0]))), all_members(cls).items()))
@@ -275,6 +277,9 @@ class Fastener:
             if cls.has_length:
                 cad_fast_prop_set(ob_fastener_tpl, 'length',
                                   str(cls.attr(ob, "length")))
+
+            if 'update' in all_members(cls) and callable(cls.update):
+                cls.update(ob_fastener_tpl, ob)
 
         return bpy.data.objects[ob_fastener_tpl_name]
 
