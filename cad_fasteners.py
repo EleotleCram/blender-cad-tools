@@ -303,11 +303,11 @@ class Screw(Fastener):
         ob_fastener_tpl.dimensions = Vector(
             (5, 5, (5 / diam) * length))
         object_transform_apply(ob_fastener_tpl)
-        # if head_type != None:
-        ob_fastener_tpl.modifiers["Head Type"].object = bpy.data.objects[cls.head_type]
-        # if drive_type != None:
-        ob_fastener_tpl.modifiers["Drive Type"].object = bpy.data.objects[cls.drive_type]
-        bpy.data.objects[cls.drive_type].location.z = cls.drive_offset
+        if cls.head_type is not None:
+            ob_fastener_tpl.modifiers["Head Type"].object = bpy.data.objects[cls.head_type]
+        if cls.drive_type is not None:
+            ob_fastener_tpl.modifiers["Drive Type"].object = bpy.data.objects[cls.drive_type]
+            bpy.data.objects[cls.drive_type].location.z = cls.drive_offset
 
     @classmethod
     def scale(cls, ob_fastener_tpl, ob):
@@ -330,6 +330,11 @@ class CountersunkHead:
     drive_offset = -2.8
 
 
+class HexHead:
+    head_type = 'Hex Head'
+    drive_offset = 0.8
+
+
 class ISO_7380_1(MetricScrew, ButtonHead):
     standard = 'ISO_7380-1'
     drive_type = 'Hex Socket'
@@ -338,6 +343,11 @@ class ISO_7380_1(MetricScrew, ButtonHead):
 class ISO_7380_TX(MetricScrew, ButtonHead):
     standard = 'ISO_7380-TX'
     drive_type = 'Torx'
+
+
+class DIN_933_1(MetricScrew, HexHead):
+    standard = 'DIN_933-1'
+    drive_type = None
 
 
 class ISO_10642(MetricScrew, CountersunkHead):
@@ -431,6 +441,8 @@ CAD_FAST_STD_ENUM = [
      'A Metric screw with a Button head and a Hex Socket drive'),
     ('ISO_10642', "Hex Countersunk (ISO 10642)",
      'A Metric screw with a Countersunk head and a Hex drive'),
+    ('DIN_933-1', "Hex Cap Screw (DIN 933-1)",
+     'A Metric hex cap screw with external hex drive'),
     ('ISO_7380-TX', "Torx Button Head (ISO 7380-TX)",
      'A Metric screw with a Button head and a Torx drive'),
     ('ISO_10642-TX', "Torx Countersunk (ISO 10642-TX)",
@@ -446,6 +458,7 @@ CAD_FAST_STD_TYPES = {
     'ISO_10642-TX': ISO_10642_TX,
     'DIN_125A': DIN_125A,
     'DIN_934-1': DIN_934_1,
+    'DIN_933-1': DIN_933_1,
 }
 
 CAD_FAST_METRIC_SIZES_IN = [
