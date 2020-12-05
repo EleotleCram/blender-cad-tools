@@ -18,6 +18,17 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import struct
+import time
+import numpy as np
+from functools import reduce
+from mathutils import Vector, Matrix
+from math import pi, acos
+import bmesh
+from bpy.app.handlers import persistent
+import bpy
+
+
 bl_info = {
     "name": "CAD Outline",
     "author": "Marcel Toele",
@@ -30,17 +41,6 @@ bl_info = {
     "category": "3D View",
 }
 
-import bpy
-from bpy.app.handlers import persistent
-
-import bmesh
-
-from math import pi, acos
-from mathutils import Vector, Matrix
-
-from functools import reduce
-
-import numpy as np
 
 ########### Automatic PIP Dependency Installation ###########
 
@@ -58,18 +58,27 @@ except:
     # install required packages
     subprocess.call([pybin, "-m", "pip", "install", "xxhash"])
 
-import xxhash
+    import xxhash
 
 ############# Generic Python Utility Functions ##############
+
 
 def flatten(t):
     return [item for sublist in t for item in sublist]
 
+
+DEBUG = False
+
+if DEBUG:
+    def dprint(*args):
+        print(*args)
+else:
+    def dprint(*args):
+        pass
+
 ############ Generic Blender Utility Functions #############
 
-import time
 
-import struct
 int_to_four_bytes = struct.Struct('<I').pack
 
 ############
@@ -78,8 +87,10 @@ int_to_four_bytes = struct.Struct('<I').pack
 #
 # arg(s: string) - input string to be hashed
 #
+
+
 def hash_djb2_string(s):
-    return reduce(lambda h,c: ord(c) + ((h << 5) + h), s, 5381) & 0xFFFFFFFF
+    return reduce(lambda h, c: ord(c) + ((h << 5) + h), s, 5381) & 0xFFFFFFFF
 
 ############
 #
@@ -92,11 +103,14 @@ def hash_djb2_string(s):
 #       with `__hash = 5381` for best experience
 #
 # Non-standard naming for avoid collision with builtin function:
+
+
 def hash_djb2_inc(__hash, i):
     for x in int_to_four_bytes(i & 0xFFFFFFFF):
-        __hash = (( __hash << 5) + __hash) + x
+        __hash = ((__hash << 5) + __hash) + x
 
     return __hash & 0xFFFFFFFF
+
 
 def vertices_hash(vertices):
     start_time = time.time()
@@ -110,20 +124,28 @@ def vertices_hash(vertices):
     __hash = h.intdigest()
 
     elapsed_time = time.time() - start_time
-    print("elapsed_time", elapsed_time * 1000)
+    dprint("elapsed_time", elapsed_time * 1000)
 
     # The - 0x7fffffff is because Blender appears to
     # insist on a signed value, and this function
     # does not care, as long as the value is consistent.
     return __hash - 0x7fffffff
 
+
 def childof_constraints_get(ob):
     return [c for c in ob.constraints if c.type == 'CHILD_OF' and c.target != None]
+
+
+def childof_constraints_clear(ob):
+    for c in childof_constraints_get(ob):
+        ob.constraints.remove(c)
+
 
 def childof_constraint_get(ob_parent, ob_child):
     childof_constraints = childof_constraints_get(ob_child)
     # Must check name equality, pointers are different (probably python rna ptr wrap issue):
     return next((c for c in childof_constraints if c.target.name == ob_parent.name), None)
+
 
 def childof_constraint_ensure(ob_parent, ob_child):
     if childof_constraint_get(ob_parent, ob_child) == None:
@@ -131,8 +153,11 @@ def childof_constraint_ensure(ob_parent, ob_child):
         constraint.target = ob_parent
         constraint.inverse_matrix = Matrix.Scale(1.0, 4)
 
+
 TOLERANCE = 5
 TOLERANCE_EXP = 10**TOLERANCE
+
+
 def face_angle_deg_get(face1, face2):
     dp = face1.normal.dot(face2.normal)
     # 2x faster than round and good enough for us:
@@ -140,6 +165,7 @@ def face_angle_deg_get(face1, face2):
     angle_deg = acos(dp) * 180 / pi
 
     return angle_deg
+
 
 def depsgraph_update_objects_find(update):
     objects = []
@@ -153,6 +179,7 @@ def depsgraph_update_objects_find(update):
 
 ############ CAD Outline Blender Utility Functions #############
 
+
 def mesh_cache_refresh():
     global mesh_cache_out_of_date
 
@@ -161,14 +188,17 @@ def mesh_cache_refresh():
 
         for ob_outline in cad_outline_collection_ensure().objects:
             if len(ob_outline.data.vertices) > 0:
-                print("mesh_cache update:  mesh_cache[%d] = " % ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
+                dprint("mesh_cache update:  mesh_cache[%d] = " %
+                       ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
                 mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash] = ob_outline.data.name
 
         mesh_cache_out_of_date = False
 
+
 def mesh_cache_save_delete(evaluated_mesh_hash):
     if evaluated_mesh_hash in mesh_cache:
         del mesh_cache[evaluated_mesh_hash]
+
 
 def cad_outline_mesh_and_options_hash_get(ob):
     __hash = ob.cad_outline.evaluated_mesh_hash + 0x7fffffff
@@ -189,8 +219,10 @@ def cad_outline_mesh_and_options_hash_get(ob):
 
     return __hash - 0x7fffffff
 
+
 def cad_outline_collections_get():
     return [c for c in bpy.data.collections if "CAD Outline Objects" in c.name]
+
 
 def cad_outline_collection_ensure(col_parent=None):
     col_outline = None
@@ -203,7 +235,8 @@ def cad_outline_collection_ensure(col_parent=None):
         col_outline = bpy.data.collections["CAD Outline Objects"]
     else:
         col_outline = next(
-            (c for c in col_parent.children if c.name.startswith("CAD Outline Objects.node")),
+            (c for c in col_parent.children if c.name.startswith(
+                "CAD Outline Objects.node")),
             None
         )
 
@@ -213,6 +246,7 @@ def cad_outline_collection_ensure(col_parent=None):
 
     return col_outline
 
+
 def cad_outline_object_hide_set(ob, should_be_hidden):
     if ob.cad_outline.is_enabled:
         ob_outline = cad_outline_object_ensure(ob)
@@ -220,29 +254,33 @@ def cad_outline_object_hide_set(ob, should_be_hidden):
             ob_outline.hide_set(should_be_hidden)
         ob_outline.hide_viewport = should_be_hidden
 
+
 def cad_outline_object_name_get(ob):
     return "%s.ol" % ob.name[0:58]
+
 
 def cad_outline_object_ensure(ob):
     if ob.cad_outline.is_enabled:
         ob_outline_name = cad_outline_object_name_get(ob)
 
         if not ob_outline_name in bpy.data.objects:
-            print("outline object does not exist, creating...")
+            dprint("outline object does not exist, creating...")
             col_outline = cad_outline_collection_ensure()
             me = bpy.data.meshes.new('%s.ol' % ob.data.name)
-            ob_outline =  bpy.data.objects.new(ob_outline_name, me)
+            ob_outline = bpy.data.objects.new(ob_outline_name, me)
             col_outline.objects.link(ob_outline)
             ob.cad_outline.evaluated_mesh_hash = 0
             bpy.context.view_layer.update()
 
         ob_outline = bpy.data.objects[ob_outline_name]
         ob_outline.hide_select = not ob.cad_outline.debug
+        childof_constraints_clear(ob_outline)
         childof_constraint_ensure(ob, ob_outline)
 
         return ob_outline
     else:
         return None
+
 
 def cad_outline_object_get(ob):
     ob_outline_name = cad_outline_object_name_get(ob)
@@ -253,8 +291,10 @@ def cad_outline_object_get(ob):
 
     return ob_outline
 
+
 mesh_cache = {}
 mesh_cache_out_of_date = True
+
 
 def cad_outline_mesh_update(ob, ob_evaluated):
 
@@ -264,19 +304,21 @@ def cad_outline_mesh_update(ob, ob_evaluated):
         ob_outline.location = (0, 0, 0)
         ob_outline.display_type = 'WIRE'
         ob_outline_prev_evaluated_mesh_hash = ob_outline.cad_outline.evaluated_mesh_hash
-        ob_outline.cad_outline.evaluated_mesh_hash = cad_outline_mesh_and_options_hash_get(ob)
+        ob_outline.cad_outline.evaluated_mesh_hash = cad_outline_mesh_and_options_hash_get(
+            ob)
 
-        print("mesh_cache_out_of_date", mesh_cache_out_of_date)
+        dprint("mesh_cache_out_of_date", mesh_cache_out_of_date)
         if mesh_cache_out_of_date:
             mesh_cache_refresh()
-        print("mesh_cache", list(mesh_cache.items()))
+        dprint("mesh_cache", list(mesh_cache.items()))
 
         # Check cache
         if ob_outline.cad_outline.evaluated_mesh_hash in mesh_cache:
             me_name = mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash]
             me_cached = bpy.data.meshes[me_name]
 
-            print("FOUND IN CACHE!", ob_outline.cad_outline.evaluated_mesh_hash, me_cached)
+            dprint("FOUND IN CACHE!",
+                   ob_outline.cad_outline.evaluated_mesh_hash, me_cached)
             me_old = ob_outline.data
             ob_outline.data = me_cached
             if me_old.users == 0:
@@ -284,12 +326,12 @@ def cad_outline_mesh_update(ob, ob_evaluated):
                 bpy.data.meshes.remove(me_old, do_unlink=True)
         # Cache miss, recompute
         else:
-            print("NOT FOUND IN CACHE :(", ob_outline.cad_outline.evaluated_mesh_hash, ob_outline_prev_evaluated_mesh_hash, ob_outline.data.users)
+            dprint("NOT FOUND IN CACHE :(", ob_outline.cad_outline.evaluated_mesh_hash,
+                   ob_outline_prev_evaluated_mesh_hash, ob_outline.data.users)
             if ob_outline.data.users > 1:
                 ob_outline.data = ob_outline.data.copy()
             elif ob_outline_prev_evaluated_mesh_hash in mesh_cache:
                 mesh_cache_save_delete(ob_outline_prev_evaluated_mesh_hash)
-
 
             bme = bmesh.new()
             bme.from_mesh(ob_evaluated.data)
@@ -312,6 +354,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
             # Functions to determine if a face is one of the three cartesian planes:
             def component_len(face, x):
                 return reduce(lambda res, e: res + (1 if abs(e-x) < 0.0001 else 0), face.normal, 0)
+
             def is_cart(face):
                 return component_len(face, 1) == 1 and component_len(face, 0) == 2
 
@@ -326,7 +369,8 @@ def cad_outline_mesh_update(ob, ob_evaluated):
                         is_cart_f1 = is_cart(f1)
                         is_cart_f2 = is_cart(f2)
 
-                        is_cart_edge = (is_cart_f1 or is_cart_f2) and (is_cart_f1 != is_cart_f2) and (abs(face_angle_deg) >= 1)
+                        is_cart_edge = (is_cart_f1 or is_cart_f2) and (
+                            is_cart_f1 != is_cart_f2) and (abs(face_angle_deg) >= 1)
                     else:
                         is_cart_edge = False
 
@@ -334,7 +378,8 @@ def cad_outline_mesh_update(ob, ob_evaluated):
                         edges_to_delete.add(edge)
 
             if ob.cad_outline.mode in ('SHARP', 'SHARP_CART'):
-                bmesh.ops.delete(bme, geom=list(edges_to_delete), context='EDGES')
+                bmesh.ops.delete(bme, geom=list(
+                    edges_to_delete), context='EDGES')
             bmesh.ops.delete(bme, geom=bme.faces, context='FACES_ONLY')
 
             bme.to_mesh(ob_outline.data)
@@ -345,6 +390,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
 
 ############# Blender Event Handlers ##############
 
+
 def on_scene_cad_outline_is_enabled_prop_updated(self, context):
     scene = self
 
@@ -352,6 +398,7 @@ def on_scene_cad_outline_is_enabled_prop_updated(self, context):
         col_outline.hide_viewport = not scene.is_cad_outline_enabled
         for ob_outline in col_outline.objects:
             ob_outline.hide_viewport = not scene.is_cad_outline_enabled
+
 
 def on_object_cad_outline_is_enabled_prop_updated(self, context):
     cad_outline = self
@@ -365,10 +412,12 @@ def on_object_cad_outline_is_enabled_prop_updated(self, context):
         ob_outline = cad_outline_object_get(ob)
         if ob_outline != None:
             if ob_outline.data.users == 1:
-                mesh_cache_save_delete(ob_outline.cad_outline.evaluated_mesh_hash)
+                mesh_cache_save_delete(
+                    ob_outline.cad_outline.evaluated_mesh_hash)
                 bpy.data.meshes.remove(ob_outline.data, do_unlink=True)
             else:
                 bpy.data.objects.remove(ob_outline, do_unlink=True)
+
 
 def on_anything_that_triggers_outline_mesh_update(self, context):
     cad_outline = self
@@ -378,9 +427,11 @@ def on_anything_that_triggers_outline_mesh_update(self, context):
         ob_evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
         cad_outline_mesh_update(ob, ob_evaluated)
 
+
 on_cad_outline_sharp_angle_prop_updated = on_anything_that_triggers_outline_mesh_update
 on_cad_outline_mode_prop_updated = on_anything_that_triggers_outline_mesh_update
 on_cad_outline_debug_prop_updated = on_anything_that_triggers_outline_mesh_update
+
 
 @persistent
 def on_load_handler(_):
@@ -388,6 +439,8 @@ def on_load_handler(_):
     mesh_cache_out_of_date = True
 
 # @TODO move to top of file
+
+
 def collection_objects_get(col):
     obs = set()
     obs.update(col.objects)
@@ -397,8 +450,9 @@ def collection_objects_get(col):
 
     return obs
 
+
 @persistent
-def on_scene_updated( scene, depsgraph ):
+def on_scene_updated(scene, depsgraph):
 
     if not scene.is_cad_outline_enabled:
         return
@@ -406,31 +460,38 @@ def on_scene_updated( scene, depsgraph ):
     # start_time = time.time()
 
     # Update outline meshes
-    # print("on_scene_updated")
+    # dprint("on_scene_updated")
     obs_updated = set()
-    obs_updated.update(flatten([depsgraph_update_objects_find(update) for update in depsgraph.updates]))
-    # print("  `--> obs_updated", obs_updated)
+    obs_updated.update(flatten(
+        [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
+    # dprint("  `--> obs_updated", obs_updated)
 
-    for ob in obs_updated:
+    # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
+    obs_updated_names = [ob.name for ob in obs_updated]
+
+    for ob_name in obs_updated_names:
+
+        if ob_name not in bpy.data.objects:
+            continue
+        else:
+            ob = bpy.data.objects[ob_name]
 
         if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
             ob_evaluated = ob.evaluated_get(depsgraph)
             prev_hash = ob.cad_outline.evaluated_mesh_hash
             new_hash = vertices_hash(ob_evaluated.data.vertices)
-            print("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
+            dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
 
             if new_hash != prev_hash:
                 ob.cad_outline.evaluated_mesh_hash = new_hash
-                print("           `--> Mesh changed!")
+                dprint("           `--> Mesh changed!")
                 cad_outline_mesh_update(ob, ob_evaluated)
-
 
     # Sync visibility
     for ob in bpy.data.objects:
         if ob.cad_outline.is_enabled and ob.mode != 'EDIT':
             should_be_hidden = not ob.visible_get()
             cad_outline_object_hide_set(ob, should_be_hidden)
-
 
     # Sync local_view
     local_view_space = next(
@@ -447,45 +508,48 @@ def on_scene_updated( scene, depsgraph ):
                 ob_outline = cad_outline_object_ensure(ob)
                 ob_outline.local_view_set(local_view_space, True)
 
-
     # Sync instances
     cols_instanced = set()
-    cols_instanced.update([ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None])
+    cols_instanced.update(
+        [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None])
     for col_instanced in cols_instanced:
         obs = collection_objects_get(col_instanced)
-        # print("Collection: ", col_instanced, "obs: ", obs)
+        # dprint("Collection: ", col_instanced, "obs: ", obs)
         col_outline_node = cad_outline_collection_ensure(col_instanced)
         for ob in obs:
-            # print("ob", ob, "ob.cad_outline.is_enabled", ob.cad_outline.is_enabled)
+            # dprint("ob", ob, "ob.cad_outline.is_enabled", ob.cad_outline.is_enabled)
             if ob.cad_outline.is_enabled:
                 ob_outline = cad_outline_object_ensure(ob)
                 if not ob_outline.name in col_outline_node.objects:
                     col_outline_node.objects.link(ob_outline)
 
-
     # Clean up stale outline objects (for instance after rename or delete of original object):
     col_outline = cad_outline_collection_ensure()
     for ob_outline in col_outline.objects:
-        ob_name = ob_outline.name[0:-3] # <-- This just strips off the ".ol"
+        ob_name = ob_outline.name[0:-3]  # <-- This just strips off the ".ol"
         if ob_name not in bpy.data.objects:
-            # print("cleanup ob_outline", ob_outline.name)
+            dprint("cleanup ob_outline", ob_outline.name)
             bpy.data.objects.remove(ob_outline, do_unlink=True)
+        else:
+            dprint("original ob (%s) for ob_outline (%s) still exists, not cleaning up" % (
+                ob_name, ob_outline.name))
 
     # elapsed_time = time.time() - start_time
-    # print("on_scene_updated.elapsed_time", elapsed_time * 1000)
+    # dprint("on_scene_updated.elapsed_time", elapsed_time * 1000)
 
 
 def on_object_mode_changed():
     ob = bpy.context.active_object
 
     if ob.cad_outline.is_enabled:
-        # print("on_object_mode_changed", ob, ob.mode)
+        # dprint("on_object_mode_changed", ob, ob.mode)
         if(ob.mode == 'EDIT'):
             cad_outline_object_hide_set(ob, True)
         else:
             cad_outline_object_hide_set(ob, False)
 
-            ob_evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            ob_evaluated = ob.evaluated_get(
+                bpy.context.evaluated_depsgraph_get())
             cad_outline_mesh_update(ob, ob_evaluated)
 
 
@@ -493,16 +557,19 @@ def on_object_mode_changed():
 # Note: Not supported yet in Blender 2.82:
 #
 # def on_local_view_changed():
-#     print("on_local_view_changed", bpy.context.space_data.local_view)
+#     dprint("on_local_view_changed", bpy.context.space_data.local_view)
 
 ############# Blender Extension Classes ##############
 
 #(identifier, name, description, icon, number)
 CAD_OUTLINE_MODE_ENUM = [
-    ('SHARP_CART', "Sharp+Cartesian", 'Outline based on sharp+cartesian edges (Most accurate)'),
-    ('SHARP', "Sharp Edges Only", 'Outline based on sharp edges only (Medium accurate and a little faster)'),
+    ('SHARP_CART', "Sharp+Cartesian",
+     'Outline based on sharp+cartesian edges (Most accurate)'),
+    ('SHARP', "Sharp Edges Only",
+     'Outline based on sharp edges only (Medium accurate and a little faster)'),
     ('WIREFRAME', "All Edges", 'Outline based on all edges (Less accurate but very fast)'),
 ]
+
 
 class CAD_Outline_ObjectProperties(bpy.types.PropertyGroup):
     is_enabled: bpy.props.BoolProperty(
@@ -541,6 +608,7 @@ class CAD_Outline_ObjectProperties(bpy.types.PropertyGroup):
         description="CAD Outline Source Object Evaluated Mesh Hash"
     )
 
+
 class CAD_Outline_ObjectPanel(bpy.types.Panel):
     """Creates the CAD Outline Panel in the Object properties window"""
     bl_label = "CAD Outline"
@@ -567,6 +635,7 @@ class CAD_Outline_ObjectPanel(bpy.types.Panel):
             split.column().prop(ob.cad_outline, "mode", text="")
             layout.row().prop(ob.cad_outline, "debug", text="Turn on CAD Outline Debugging")
 
+
 class CAD_Outline_ScenePanel(bpy.types.Panel):
     """Creates the CAD Outline Panel in the Scene properties window"""
     bl_label = "CAD Outline"
@@ -583,6 +652,7 @@ class CAD_Outline_ScenePanel(bpy.types.Panel):
 
         row.prop(scene, "is_cad_outline_enabled")
 
+
 classes = [
     CAD_Outline_ObjectProperties,
     CAD_Outline_ObjectPanel,
@@ -592,6 +662,7 @@ classes = [
 ############# Register/Unregister Hooks ##############
 
 cad_outline_msgbus_owner = object()
+
 
 def register():
     for c in classes:
@@ -603,9 +674,10 @@ def register():
         description="Enable CAD Outlines For This Scene to Enhance Object Appearance in 3D Viewport",
         update=on_scene_cad_outline_is_enabled_prop_updated
     )
-    bpy.types.Object.cad_outline = bpy.props.PointerProperty(name="CAD Outline Object Properties", type=CAD_Outline_ObjectProperties)
+    bpy.types.Object.cad_outline = bpy.props.PointerProperty(
+        name="CAD Outline Object Properties", type=CAD_Outline_ObjectProperties)
 
-    bpy.app.handlers.depsgraph_update_post.append( on_scene_updated )
+    bpy.app.handlers.depsgraph_update_post.append(on_scene_updated)
     bpy.app.handlers.load_post.append(on_load_handler)
 
     bpy.msgbus.subscribe_rna(
@@ -625,6 +697,7 @@ def register():
     #     notify=on_local_view_changed,
     # )
 
+
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
@@ -632,8 +705,8 @@ def unregister():
     del bpy.types.Scene.is_cad_outline_enabled
     del bpy.types.Object.cad_outline
 
-    bpy.app.handlers.depsgraph_update_post.remove( on_scene_updated )
-    bpy.app.handlers.load_post.remove( on_load_handler )
+    bpy.app.handlers.depsgraph_update_post.remove(on_scene_updated)
+    bpy.app.handlers.load_post.remove(on_load_handler)
 
     bpy.msgbus.clear_by_owner(cad_outline_msgbus_owner)
 
