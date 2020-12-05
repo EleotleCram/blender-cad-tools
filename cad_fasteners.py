@@ -22,6 +22,7 @@ import re
 from os import path
 from string import Template
 from mathutils import Vector, Matrix
+from math import pi
 import bmesh
 import bpy
 
@@ -333,6 +334,20 @@ class ButtonHead:
 class CountersunkHead:
     head_type = 'Countersunk Head'
     drive_offset = -2.8
+
+    @classmethod
+    def update(cls, ob_fastener_tpl, ob):
+        sharp_angle = 15
+
+        ob_fastener_tpl.data.auto_smooth_angle = sharp_angle * (pi / 180)
+        if ob:  # Also update existing object
+            ob.data.auto_smooth_angle = sharp_angle * (pi / 180)
+
+        # 'Satisfier' compromise:
+        if 'cad_outline' in ob_fastener_tpl:
+            ob_fastener_tpl.cad_outline.sharp_angle = sharp_angle
+            if ob:  # Also update existing object
+                ob.cad_outline.sharp_angle = sharp_angle
 
 
 class HexHead:
