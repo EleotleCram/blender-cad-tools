@@ -120,6 +120,10 @@ def vertices_hash(vertices):
 def childof_constraints_get(ob):
     return [c for c in ob.constraints if c.type == 'CHILD_OF' and c.target != None]
 
+def childof_constraints_clear(ob):
+    for c in childof_constraints_get(ob):
+        ob.constraints.remove(c)
+
 def childof_constraint_get(ob_parent, ob_child):
     childof_constraints = childof_constraints_get(ob_child)
     # Must check name equality, pointers are different (probably python rna ptr wrap issue):
@@ -238,6 +242,7 @@ def cad_outline_object_ensure(ob):
 
         ob_outline = bpy.data.objects[ob_outline_name]
         ob_outline.hide_select = not ob.cad_outline.debug
+        childof_constraints_clear(ob_outline)
         childof_constraint_ensure(ob, ob_outline)
 
         return ob_outline
