@@ -416,7 +416,15 @@ def on_scene_updated( scene, depsgraph ):
     obs_updated.update(flatten([depsgraph_update_objects_find(update) for update in depsgraph.updates]))
     # print("  `--> obs_updated", obs_updated)
 
-    for ob in obs_updated:
+    # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
+    obs_updated_names = [ob.name for ob in obs_updated]
+
+    for ob_name in obs_updated_names:
+
+        if ob_name not in bpy.data.objects:
+            continue
+        else:
+            ob = bpy.data.objects[ob_name]
 
         if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
             ob_evaluated = ob.evaluated_get(depsgraph)
