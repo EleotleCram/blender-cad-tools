@@ -524,6 +524,8 @@ class CAD_FAST_OT_AddNew(bpy.types.Operator):
 
     def execute(self, context):
 
+        bpy.ops.object.select_all(action='DESELECT')
+
         # Create Template and "Linked Duplicate" Object
         ob_fastener_tpl = cad_fast_object_template_ensure()
         ob_fastener = ob_fastener_tpl.copy()
