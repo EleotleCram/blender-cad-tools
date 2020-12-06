@@ -86,12 +86,38 @@ def depsgraph_update_objects_find(update):
     return objects
 
 
+def object_modifiers_apply(ob):
+    bme = bmesh.new()
+    ob_evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    bme.from_mesh(ob_evaluated.data)
+    ob.modifiers.clear()
+    bme.to_mesh(ob.data)
+    bme.free()
+
+
 def object_transform_apply(ob):
     # Transform the mesh using the matrix world
     ob.matrix_world = Matrix.Diagonal(Vector((*ob.scale, 1.0)))
     ob.data.transform(ob.matrix_world)
     # Reset matrix to identity
     ob.matrix_world = Matrix()
+
+
+def object_dimensions_from_width_and_height_set(ob, width, height):
+    scale = Vector()
+
+    # Collect X-Y scale
+    ob.dimensions.x = width
+    scale.x = ob.scale.x
+    scale.y = scale.x
+
+    # Collect Z scale
+    ob.dimensions.z = height
+    scale.z = ob.scale.z
+
+    # Apply scale
+    ob.scale = scale
+    object_transform_apply(ob)
 
 
 def property_group_as_dict_get(pg):
@@ -246,6 +272,11 @@ class Fastener:
         return getattr(ob.cad_fast, name) if ob is not None and name in ob.cad_fast else all_vars(cls)[name]
 
     @classmethod
+    def func(cls, name):
+        members = all_members(cls)
+        return name in members and callable(getattr(cls, name))
+
+    @classmethod
     def template_ensure(cls, ob=None):
 
         cad_fast_template_collection_ensure()
@@ -260,7 +291,8 @@ class Fastener:
             ob_fastener_tpl.name = ob_fastener_tpl_name
             ob_fastener_tpl.data = ob_fastener_tpl.data.copy()
 
-            cls.construct(ob_fastener_tpl, ob)
+            if cls.func('construct'):
+                cls.construct(ob_fastener_tpl, ob)
 
             ob_fastener_tpl.hide_viewport = False
             col_fasteners = bpy.data.collections["CAD Fastener Templates"]
@@ -270,11 +302,15 @@ class Fastener:
             ob_evaluated = ob_fastener_tpl.evaluated_get(
                 bpy.context.evaluated_depsgraph_get())
             bme.from_mesh(ob_evaluated.data)
-            ob_fastener_tpl.modifiers.clear()
+
+            if cls.func('cleanup'):
+                cls.cleanup(ob_fastener_tpl, ob)
+
             bme.to_mesh(ob_fastener_tpl.data)
             bme.free()
 
-            cls.scale(ob_fastener_tpl, ob)
+            if cls.func('scale'):
+                cls.scale(ob_fastener_tpl, ob)
 
             ob_fastener_tpl.hide_viewport = True
 
@@ -290,7 +326,7 @@ class Fastener:
         ob_fastener_tpl = bpy.data.objects[ob_fastener_tpl_name]
 
         # CAVEAT REFACTOR: This must happen always, so existing objects can be finetuned:
-        if 'update' in all_members(cls) and callable(cls.update):
+        if cls.func('update'):
             cls.update(ob_fastener_tpl, ob)
 
         return bpy.data.objects[ob_fastener_tpl_name]
@@ -301,8 +337,8 @@ class Metric:
     size_designator = 'M3'
 
     @classmethod
-    def diameter_get(cls, ob):
-        return float(cls.attr(ob, "size_designator")[1:])
+    def diameter_get(cls, size_designator):
+        return float(size_designator[1:])
 
 
 class Screw(Fastener):
@@ -312,39 +348,108 @@ class Screw(Fastener):
     length = 8
 
     @classmethod
-    def construct(cls, ob_fastener_tpl, ob):
-        diam = cls.diameter_get(ob)
-        length = float(cls.attr(ob, "length"))
+    def screw_head_construct(cls, size_designator):
+        ob_head = bpy.data.objects[cls.head_type]
+        ob_head.hide_viewport = False
 
-        # if has_length:
-        ob_fastener_tpl.dimensions = Vector(
-            (5, 5, (5 / diam) * length))
-        object_transform_apply(ob_fastener_tpl)
-        if cls.head_type is not None:
-            ob_fastener_tpl.modifiers["Head Type"].object = bpy.data.objects[cls.head_type]
-        if cls.drive_type is not None:
-            ob_fastener_tpl.modifiers["Drive Type"].object = bpy.data.objects[cls.drive_type]
-            bpy.data.objects[cls.drive_type].location.z = cls.drive_offset
+        ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
+
+        bme = bmesh.new()
+        ob_head_evaluated = ob_head.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        bme.from_mesh(ob_head_evaluated.data)
+        bme.to_mesh(ob_head_tmp.data)
+        bme.free()
+
+        ob_head.hide_viewport = True
+
+        width, height = cls.head_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_head_tmp, width, height)
+
+        # Heads should be at origin, but this allows for absolute (AKA non-scaled)
+        # fine-tuned offsets to avoid Boolean mess ups:
+        ob_head_tmp.matrix_world = Matrix.Translation(ob_head.location.copy())
+
+        return ob_head_tmp
 
     @classmethod
-    def scale(cls, ob_fastener_tpl, ob):
-        diam = cls.diameter_get(ob)
-        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+    def screw_drive_cutter_construct(cls, size_designator):
+        diam = cls.diameter_get(size_designator)
+        scale_factor = diam / 5
+
+        ob_drive_cutter = bpy.data.objects[cls.drive_type]
+        ob_drive_cutter.hide_viewport = False
+
+        ob_drive_cutter_tmp = bpy.data.objects.new('temp-drive-cutter', ob_drive_cutter.data.copy())
+
+        ob_drive_cutter_tmp.scale = (scale_factor, scale_factor, scale_factor)
+        object_transform_apply(ob_drive_cutter_tmp)
+
+        # S for Socket or Slot (depending on drive type)
+        s_width = cls.s_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_drive_cutter_tmp, s_width, ob_drive_cutter_tmp.dimensions.z)
+
+        if cls.drive_offset != 0:
+            if cls.head_type is not None:
+                _, head_height = cls.head_dim_get(size_designator)
+                ob_drive_cutter_tmp.location.z = head_height
+            else:
+                ob_drive_cutter_tmp.location.z = cls.drive_offset * scale_factor
+
+        ob_drive_cutter.hide_viewport = True
+
+        return ob_drive_cutter_tmp
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        size_designator = cls.attr(ob, "size_designator")
+        diam = cls.diameter_get(size_designator)
+        length = float(cls.attr(ob, "length"))
+
+        ob_fastener_tpl.dimensions = Vector((diam, diam, length))
         object_transform_apply(ob_fastener_tpl)
+        scale_factor = diam / 5
+        ob_fastener_tpl.modifiers["Bottom Bevel"].width = 0.9 * scale_factor
+        ob_fastener_tpl.modifiers["Top Bevel"].width = 0.2 * scale_factor
+
+        if cls.head_type is not None:
+            ob_head = cls.screw_head_construct(size_designator)
+            mod_head = ob_fastener_tpl.modifiers.new("Head", type='BOOLEAN')
+            mod_head.operation = 'UNION'
+            mod_head.object = ob_head
+
+        if cls.drive_type is not None:
+            mod_drive = ob_fastener_tpl.modifiers.new("Drive", type='BOOLEAN')
+            mod_drive.operation = 'DIFFERENCE'
+            mod_drive.object = cls.screw_drive_cutter_construct(size_designator)
+
+    @classmethod
+    def cleanup(cls, ob_fastener_tpl, ob):
+        for mod in ob_fastener_tpl.modifiers:
+            if mod.type == 'BOOLEAN' and mod.object is not None:
+                bpy.data.objects.remove(mod.object, do_unlink=True)
+
+        ob_fastener_tpl.modifiers.clear()
 
 
 class MetricScrew(Screw, Metric):
     master_template = 'M5 Screw Template'
 
 
-class ButtonHead:
+class RoundScrewHead:
+    @classmethod
+    def head_dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return (dim['dk'], dim['k'])
+
+
+class ButtonHead(RoundScrewHead):
     head_type = 'Button Head'
-    drive_offset = 0
-
-
-class CountersunkHead:
-    head_type = 'Countersunk Head'
     drive_offset = -2.8
+
+
+class CountersunkHead(RoundScrewHead):
+    head_type = 'Countersunk Head'
+    drive_offset = 0
 
     @classmethod
     def update(cls, ob_fastener_tpl, ob):
@@ -361,17 +466,47 @@ class CountersunkHead:
                 ob.cad_outline.sharp_angle = sharp_angle
 
 
+class SocketDrive:
+    @classmethod
+    def s_dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return dim['s']
+
+
 class HexHead:
     head_type = 'Hex Head'
-    drive_offset = 0.8
+    drive_offset = -2
+
+    @classmethod
+    def head_dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return (dim['s'], dim['k'])
 
 
-class ISO_7380_1(MetricScrew, ButtonHead):
+class ISO_7380(MetricScrew, ButtonHead, SocketDrive):
+    dimensions = {
+        # autopep8: off
+        'M2':   {'dk': 3.5,  'k': 1.3,  's': 1.3},
+        'M2.5': {'dk': 4.7,  'k': 1.5,  's': 1.5},
+        'M3':   {'dk': 5.7,  'k': 1.65, 's': 2},
+        'M4':   {'dk': 7.6,  'k': 2.2,  's': 2.5},
+        'M5':   {'dk': 9.5,  'k': 2.75, 's': 3},
+        'M6':   {'dk': 10.5, 'k': 3.3,  's': 4},
+        'M8':   {'dk': 14,   'k': 4.4,  's': 5},
+        'M10':  {'dk': 17.5, 'k': 5.5,  's': 6},
+        'M12':  {'dk': 21,   'k': 6.6,  's': 8},
+        'M14':  {'dk': 24.5, 'k': 7.7,  's': 10},
+        'M16':  {'dk': 28,   'k': 8.8,  's': 10},
+        # autopep8: on
+    }
+
+
+class ISO_7380_1(ISO_7380):
     standard = 'ISO_7380-1'
     drive_type = 'Hex Socket'
 
 
-class ISO_7380_TX(MetricScrew, ButtonHead):
+class ISO_7380_TX(ISO_7380):
     standard = 'ISO_7380-TX'
     drive_type = 'Torx'
 
@@ -379,14 +514,47 @@ class ISO_7380_TX(MetricScrew, ButtonHead):
 class DIN_933_1(MetricScrew, HexHead):
     standard = 'DIN_933-1'
     drive_type = None
+    dimensions = {
+        # autopep8: off
+        'M2':   {'s': 4,   'k': 1.4},
+        'M2.5': {'s': 5,   'k': 1.7},
+        'M3':   {'s': 5.5, 'k': 2},
+        'M4':   {'s': 7,   'k': 2.8},
+        'M5':   {'s': 8,   'k': 3.5},
+        'M6':   {'s': 10,  'k': 4},
+        'M8':   {'s': 13,  'k': 5.3},
+        'M10':  {'s': 17,  'k': 6.4},
+        'M12':  {'s': 19,  'k': 7.5},
+        'M14':  {'s': 22,  'k': 8.8},
+        'M16':  {'s': 24,  'k': 10},
+        # autopep8: on
+    }
 
 
-class ISO_10642(MetricScrew, CountersunkHead):
+class ISO_10642(MetricScrew, CountersunkHead, SocketDrive):
+    dimensions = {
+        # autopep8: off
+        'M2':   {'dk': 4,  'k': 1.2, 's': 1.25},
+        'M2.5': {'dk': 5,  'k': 1.5, 's': 1.5},
+        'M3':   {'dk': 6,  'k': 1.7, 's': 2},
+        'M4':   {'dk': 8,  'k': 2.3, 's': 2.5},
+        'M5':   {'dk': 10, 'k': 2.8, 's': 3},
+        'M6':   {'dk': 12, 'k': 3.3, 's': 4},
+        'M8':   {'dk': 16, 'k': 4.4, 's': 5},
+        'M10':  {'dk': 20, 'k': 5.5, 's': 6},
+        'M12':  {'dk': 24, 'k': 6.5, 's': 8},
+        'M14':  {'dk': 27, 'k': 7,   's': 10},
+        'M16':  {'dk': 30, 'k': 7.5, 's': 10},
+        # autopep8: on
+    }
+
+
+class ISO_10642_HX(ISO_10642):
     standard = 'ISO_10642'
     drive_type = 'Hex Socket'
 
 
-class ISO_10642_TX(MetricScrew, CountersunkHead):
+class ISO_10642_TX(ISO_10642):
     standard = 'ISO_10642-TX'
     drive_type = 'Torx'
 
@@ -401,7 +569,8 @@ class Washer(Fastener):
 
     @classmethod
     def scale(cls, ob_fastener_tpl, ob):
-        diam = cls.diameter_get(ob)
+        size_designator = cls.attr(ob, "size_designator")
+        diam = cls.diameter_get(size_designator)
         ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
         object_transform_apply(ob_fastener_tpl)
 
@@ -485,7 +654,7 @@ CAD_FAST_STD_ENUM = [
 CAD_FAST_STD_TYPES = {
     'ISO_7380-1': ISO_7380_1,
     'ISO_7380-TX': ISO_7380_TX,
-    'ISO_10642': ISO_10642,
+    'ISO_10642': ISO_10642_HX,
     'ISO_10642-TX': ISO_10642_TX,
     'DIN_125A': DIN_125A,
     'DIN_934-1': DIN_934_1,
