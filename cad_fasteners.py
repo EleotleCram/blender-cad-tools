@@ -312,9 +312,6 @@ class Fastener:
                 if cls.func('cleanup'):
                     cls.cleanup(ob_fastener_tpl, ob)
 
-            if cls.func('scale'):
-                cls.scale(ob_fastener_tpl, ob)
-
             ob_fastener_tpl.hide_viewport = True
 
             # Update cad_fast props:
