@@ -630,27 +630,15 @@ class Nut(Fastener):
     has_length = False
 
     @classmethod
-    def construct(cls, ob_fastener_tpl, ob):
-        pass
+    def dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return (dim['s'], dim['h'])
 
     @classmethod
-    def scale(cls, ob_fastener_tpl, ob):
+    def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
-        dimensions = cls.dimensions[size_designator]
-        scale = Vector()
-
-        # Collect X-Y scale
-        ob_fastener_tpl.dimensions.x = dimensions['s']
-        scale.x = ob_fastener_tpl.scale.x
-        scale.y = scale.x
-
-        # Collect Z scale
-        ob_fastener_tpl.dimensions.z = dimensions['m']
-        scale.z = ob_fastener_tpl.scale.z
-
-        # Apply scale
-        ob_fastener_tpl.scale = scale
-        object_transform_apply(ob_fastener_tpl)
+        width, height = cls.dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_fastener_tpl, width, height)
 
 
 class MetricNut(Nut, Metric):
@@ -662,17 +650,17 @@ class DIN_934_1(MetricNut):
     standard = 'DIN_934-1'
     dimensions = {
         # autopep8: off
-        'M2':   {'s': 4,   'm': 1.6},
-        'M2.5': {'s': 5,   'm': 2},
-        'M3':   {'s': 5.5, 'm': 2.4},
-        'M4':   {'s': 7,   'm': 3.2},
-        'M5':   {'s': 8,   'm': 4},
-        'M6':   {'s': 10,  'm': 5},
-        'M8':   {'s': 13,  'm': 6.5},
-        'M10':  {'s': 17,  'm': 8},
-        'M12':  {'s': 19,  'm': 10},
-        'M14':  {'s': 22,  'm': 11},
-        'M16':  {'s': 24,  'm': 13},
+        'M2':   {'s': 4,   'h': 1.6},
+        'M2.5': {'s': 5,   'h': 2},
+        'M3':   {'s': 5.5, 'h': 2.4},
+        'M4':   {'s': 7,   'h': 3.2},
+        'M5':   {'s': 8,   'h': 4},
+        'M6':   {'s': 10,  'h': 5},
+        'M8':   {'s': 13,  'h': 6.5},
+        'M10':  {'s': 17,  'h': 8},
+        'M12':  {'s': 19,  'h': 10},
+        'M14':  {'s': 22,  'h': 11},
+        'M16':  {'s': 24,  'h': 13},
         # autopep8: on
     }
 
