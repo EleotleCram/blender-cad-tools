@@ -690,29 +690,34 @@ CAD_FAST_STD_TYPES = {
     'ISO_4026': ISO_4026,
 }
 
-CAD_FAST_METRIC_SIZES_IN = [
-    ('M2', (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30)),
-    ('M2.5', (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30)),
-    ('M3', (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50)),
-    ('M4', (5, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60)),
-    ('M5', (6, 8, 10, 12, 14, 16, 18, 20, 25,
-            30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80)),
-    ('M6', (8, 10, 12, 14, 16, 18, 20, 25, 30, 35,
-            40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-    ('M8', (12, 14, 16, 18, 20, 25, 30, 35, 40,
-            45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-    ('M10', (16, 18, 20, 25, 30, 35, 40, 45,
-             50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-    ('M12', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-    ('M14', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-    ('M16', (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120)),
-]
+CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
+    'M2': (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30),
+    'M2.5': (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30),
+    'M3': (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50),
+    'M4': (5, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60),
+    'M5': (6, 8, 10, 12, 14, 16, 18, 20, 25,
+            30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80),
+    'M6': (8, 10, 12, 14, 16, 18, 20, 25, 30, 35,
+            40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+    'M8': (12, 14, 16, 18, 20, 25, 30, 35, 40,
+            45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+    'M10': (16, 18, 20, 25, 30, 35, 40, 45,
+             50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+    'M12': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+    'M14': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+    'M16': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+}
 
-CAD_FAST_METRIC_SIZES = dict(list(map(lambda e: (e[0], list(
-    map(lambda l: (str(l), str(l), ''), e[1]))), CAD_FAST_METRIC_SIZES_IN)))
+# autopep8: off
+CAD_FAST_METRIC_AVAILABLE_LENGTHS = dict([
+    # sd for size_designator, l for length
+    (sd, [(str(l), str(l), '') for l in lengths])
+        for sd, lengths in CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN.items() 
+])
+# autopep8: on
+
 CAD_FAST_METRIC_D_ENUM = list(
-    map(lambda e: (e[0], e[0], ''), CAD_FAST_METRIC_SIZES_IN))
-
+    map(lambda e: (e[0], e[0], ''), CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN))
 
 def cad_fast_d_items_get(self, context):
     cad_fast_props = self
@@ -723,7 +728,7 @@ def cad_fast_d_items_get(self, context):
 def cad_fast_l_items_get(self, context):
     cad_fast_props = self
 
-    return CAD_FAST_METRIC_SIZES[cad_fast_props.size_designator]
+    return CAD_FAST_METRIC_AVAILABLE_LENGTHS[cad_fast_props.size_designator]
 
 
 class CAD_FAST_ObjectProperties(bpy.types.PropertyGroup):
