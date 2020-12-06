@@ -346,6 +346,9 @@ class Metric:
 
 class Screw(Fastener):
     name_template = '${size_designator}X${length} ${drive_type} ${head_type} Screw'
+    head_type = None
+    drive_type = None
+    drive_offset = 0
     has_length = True
     # default length
     length = 8
@@ -484,7 +487,7 @@ class HexHead:
         return (dim['s'], dim['k'])
 
 
-class ISO_7380(MetricScrew, ButtonHead, SocketDrive):
+class ISO_7380(ButtonHead, MetricScrew, SocketDrive):
     dimensions = {
         # autopep8: off
         'M2':   {'dk': 3.5,  'k': 1.3,  's': 1.3},
@@ -512,9 +515,8 @@ class ISO_7380_TX(ISO_7380):
     drive_type = 'Torx'
 
 
-class DIN_933_1(MetricScrew, HexHead):
+class DIN_933_1(HexHead, MetricScrew):
     standard = 'DIN_933-1'
-    drive_type = None
     dimensions = {
         # autopep8: off
         'M2':   {'s': 4,   'k': 1.4},
@@ -532,7 +534,7 @@ class DIN_933_1(MetricScrew, HexHead):
     }
 
 
-class ISO_10642(MetricScrew, CountersunkHead, SocketDrive):
+class ISO_10642(CountersunkHead, MetricScrew, SocketDrive):
     dimensions = {
         # autopep8: off
         'M2':   {'dk': 4,  'k': 1.2, 's': 1.25},
