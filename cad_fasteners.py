@@ -589,15 +589,17 @@ class Washer(Fastener):
     has_length = False
 
     @classmethod
-    def construct(cls, ob_fastener_tpl, ob):
-        pass
+    def dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return (dim['D'], dim['d'], dim['h'])
 
     @classmethod
-    def scale(cls, ob_fastener_tpl, ob):
+    def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
-        diam = cls.diameter_get(size_designator)
-        ob_fastener_tpl.scale = (diam / 5, diam / 5, diam / 5)
+        D, d, h = cls.dim_get(size_designator)
+        ob_fastener_tpl.dimensions = Vector((D, D, h))
         object_transform_apply(ob_fastener_tpl)
+        ob_fastener_tpl.modifiers['Solidify'].thickness = (D - d) / 2
 
 
 class MetricWasher(Washer, Metric):
@@ -606,6 +608,21 @@ class MetricWasher(Washer, Metric):
 
 class DIN_125A(MetricWasher):
     standard = 'DIN_125A'
+    dimensions = {
+        # autopep8: off
+        'M2':   {'D': 5,  'd': 2.2,  'h': 0.3},
+        'M2.5': {'D': 6,  'd': 2.7,  'h': 0.5},
+        'M3':   {'D': 7,  'd': 3.2,  'h': 0.5},
+        'M4':   {'D': 9,  'd': 4.3,  'h': 0.8},
+        'M5':   {'D': 10, 'd': 5.3,  'h': 1},
+        'M6':   {'D': 12, 'd': 6.4,  'h': 1.6},
+        'M8':   {'D': 16, 'd': 8.4,  'h': 1.6},
+        'M10':  {'D': 20, 'd': 10.5, 'h': 2},
+        'M12':  {'D': 24, 'd': 13,   'h': 2.5},
+        'M14':  {'D': 28, 'd': 15,   'h': 2.5},
+        'M16':  {'D': 30, 'd': 17,   'h': 3},
+        # autopep8: on
+    }
 
 
 class Nut(Fastener):
