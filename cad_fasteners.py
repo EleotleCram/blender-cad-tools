@@ -516,6 +516,7 @@ class ISO_7380_TX(ISO_7380):
 
 
 class DIN_933_1(HexHead, MetricScrew):
+    name_template = '${size_designator}X${length} ${head_type} Cap Screw'
     standard = 'DIN_933-1'
     dimensions = {
         # autopep8: off
