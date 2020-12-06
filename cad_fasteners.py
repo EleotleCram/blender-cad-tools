@@ -563,6 +563,27 @@ class ISO_10642_TX(ISO_10642):
     drive_type = 'Torx'
 
 
+class ISO_4026(MetricScrew, SocketDrive):
+    name_template = '${size_designator}X${length} Set Screw'
+    standard = 'ISO_4026'
+    drive_type = 'Hex Socket'
+    dimensions = {
+        # autopep8: off
+        'M2':   {'s': 0.9},
+        'M2.5': {'s': 1.3},
+        'M3':   {'s': 1.5},
+        'M4':   {'s': 2},
+        'M5':   {'s': 2.5},
+        'M6':   {'s': 3},
+        'M8':   {'s': 4},
+        'M10':  {'s': 5},
+        'M12':  {'s': 6},
+        'M14':  {'s': 6},
+        'M16':  {'s': 8},
+        # autopep8: on
+    }
+
+
 class Washer(Fastener):
     name_template = '${size_designator} Washer'
     has_length = False
@@ -653,6 +674,7 @@ CAD_FAST_STD_ENUM = [
      'A Metric screw with a Countersunk head and a Torx drive'),
     ('DIN_125A', "Washer (DIN 125A)", 'A Metric washer'),
     ('DIN_934-1', "Nut (DIN 934-1)", 'A Metric nut'),
+    ('ISO_4026', "Set Screw (ISO 4026)", 'A Metric set screw'),
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -663,6 +685,7 @@ CAD_FAST_STD_TYPES = {
     'DIN_125A': DIN_125A,
     'DIN_934-1': DIN_934_1,
     'DIN_933-1': DIN_933_1,
+    'ISO_4026': ISO_4026,
 }
 
 CAD_FAST_METRIC_SIZES_IN = [
