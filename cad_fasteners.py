@@ -43,6 +43,10 @@ bl_info = {
 ############# Generic Python Utility Functions ##############
 
 
+def clamp(lo, val, hi):
+    return max(lo, min(val, hi))
+
+
 def flatten(t):
     return [item for sublist in t for item in sublist]
 
@@ -496,7 +500,6 @@ class ISO_7380(ButtonHead, MetricScrew, SocketDrive):
         'M8':   {'dk': 14,   'k': 4.4,  's': 5},
         'M10':  {'dk': 17.5, 'k': 5.5,  's': 6},
         'M12':  {'dk': 21,   'k': 6.6,  's': 8},
-        'M14':  {'dk': 24.5, 'k': 7.7,  's': 10},
         'M16':  {'dk': 28,   'k': 8.8,  's': 10},
         # autopep8: on
     }
@@ -719,10 +722,24 @@ CAD_FAST_METRIC_AVAILABLE_LENGTHS = dict([
 CAD_FAST_METRIC_D_ENUM = list(
     map(lambda e: (e[0], e[0], ''), CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN))
 
+# autopep8: off
+CAD_FAST_METRIC_AVAILABLE_SIZES = dict([
+    # sd for size_designator
+    (std_name, [(sd, sd, '') for sd in std_cls.dimensions.keys()])
+        for std_name, std_cls in CAD_FAST_STD_TYPES.items()
+])
+# autopep8: on
+
+def cad_fast_size_designator_get(self):
+    return clamp(0, self['size_designator'], len(CAD_FAST_METRIC_AVAILABLE_SIZES[self.standard]) - 1)
+
+def cad_fast_size_designator_set(self, value):
+    self['size_designator'] = value
+
 def cad_fast_d_items_get(self, context):
     cad_fast_props = self
 
-    return CAD_FAST_METRIC_D_ENUM
+    return CAD_FAST_METRIC_AVAILABLE_SIZES[cad_fast_props.standard]
 
 
 def cad_fast_l_items_get(self, context):
@@ -746,6 +763,8 @@ class CAD_FAST_ObjectProperties(bpy.types.PropertyGroup):
     )
     size_designator: bpy.props.EnumProperty(
         name="D",
+        get=cad_fast_size_designator_get,
+        set=cad_fast_size_designator_set,
         items=cad_fast_d_items_get,
         update=on_object_cad_fast_prop_updated
     )
