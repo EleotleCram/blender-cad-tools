@@ -229,7 +229,7 @@ def on_object_cad_fast_prop_updated(self, context):
         # Clean up stale fastener template objects:
         obs_tpl = bpy.data.collections['CAD Fastener Templates'].objects
         obs_tpl_stale = [ob_tpl for ob_tpl in obs_tpl if ob_tpl.name.endswith(
-            ".tpl") and ob_tpl.data.users == 1]
+            ".tpl") and ob_tpl.data.users <= 1]
         for ob_tpl_stale in obs_tpl_stale:
             bpy.data.objects.remove(ob_tpl_stale, do_unlink=True)
 
