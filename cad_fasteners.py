@@ -86,13 +86,23 @@ def depsgraph_update_objects_find(update):
     return objects
 
 
+class BMeshFromEvaluated(object):
+    def __init__(self, ob_src, ob_tgt = None):
+        self.ob_src = ob_src
+        self.ob_tgt = ob_tgt if ob_tgt is not None else ob_src
+        self.bme = bmesh.new()
+    def __enter__(self):
+        ob_evaluated = self.ob_src.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        self.bme.from_mesh(ob_evaluated.data)
+        return self.bme
+    def __exit__(self, type, value, traceback):
+        self.bme.to_mesh(self.ob_tgt.data)
+        self.bme.free()
+
+
 def object_modifiers_apply(ob):
-    bme = bmesh.new()
-    ob_evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
-    bme.from_mesh(ob_evaluated.data)
-    ob.modifiers.clear()
-    bme.to_mesh(ob.data)
-    bme.free()
+    with BMeshFromEvaluated(ob) as bme:
+        ob.modifiers.clear()
 
 
 def object_transform_apply(ob):
@@ -298,16 +308,9 @@ class Fastener:
             col_fasteners = bpy.data.collections["CAD Fastener Templates"]
             col_fasteners.objects.link(ob_fastener_tpl)
 
-            bme = bmesh.new()
-            ob_evaluated = ob_fastener_tpl.evaluated_get(
-                bpy.context.evaluated_depsgraph_get())
-            bme.from_mesh(ob_evaluated.data)
-
-            if cls.func('cleanup'):
-                cls.cleanup(ob_fastener_tpl, ob)
-
-            bme.to_mesh(ob_fastener_tpl.data)
-            bme.free()
+            with BMeshFromEvaluated(ob_fastener_tpl) as bme:
+                if cls.func('cleanup'):
+                    cls.cleanup(ob_fastener_tpl, ob)
 
             if cls.func('scale'):
                 cls.scale(ob_fastener_tpl, ob)
@@ -354,11 +357,9 @@ class Screw(Fastener):
 
         ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
 
-        bme = bmesh.new()
-        ob_head_evaluated = ob_head.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        bme.from_mesh(ob_head_evaluated.data)
-        bme.to_mesh(ob_head_tmp.data)
-        bme.free()
+        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
+        with BMeshFromEvaluated(ob_head, ob_head_tmp) as bme:
+            pass
 
         ob_head.hide_viewport = True
 
