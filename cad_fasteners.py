@@ -665,7 +665,18 @@ class DIN_934_1(MetricNut):
     }
 
 
-class DROP_IN_T_NUT_2020(MetricNut):
+class T_NUT(MetricNut):
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        size_designator = cls.attr(ob, "size_designator")
+        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
+
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore.dimensions = (diam, diam, 10)
+        object_transform_apply(ob_bore)
+
+
+class DROP_IN_T_NUT_2020(T_NUT):
     name_template = '2020 ${size_designator} Drop In T-Nut'
     master_template = '2020 Drop In T-Nut'
     standard = 'DROP_IN_T_NUT_2020'
@@ -677,14 +688,20 @@ class DROP_IN_T_NUT_2020(MetricNut):
         # autopep8: on
     }
 
-    @classmethod
-    def construct(cls, ob_fastener_tpl, ob):
-        size_designator = cls.attr(ob, "size_designator")
-        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
 
-        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
-        ob_bore.dimensions = (diam, diam, 10)
-        object_transform_apply(ob_bore)
+class SLIDING_T_NUT_2020(T_NUT):
+    name_template = '2020 ${size_designator} Sliding T-Nut'
+    master_template = '2020 Sliding T-Nut'
+    standard = 'SLIDING_T_NUT_2020'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 9.8, 'h': 4.5},
+        'M4':   {'s': 9.8, 'h': 4.5},
+        'M5':   {'s': 9.8, 'h': 4.5},
+        'M6':   {'s': 9.8, 'h': 4.5},
+        # autopep8: on
+    }
+
 
 # (identifier, name, description, icon, number)
 CAD_FAST_STD_ENUM = [
@@ -702,6 +719,7 @@ CAD_FAST_STD_ENUM = [
     ('DIN_934-1', "Nut (DIN 934-1)", 'A Metric nut'),
     ('ISO_4026', "Set Screw (ISO 4026)", 'A Metric set screw'),
     ('DROP_IN_T_NUT_2020', "Drop In T-Nut (2020)", 'A Drop In T-Nut for a 2020 extrusion'),
+    ('SLIDING_T_NUT_2020', "Sliding T-Nut (2020)", 'A Sliding T-Nut for a 2020 extrusion'),
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -714,6 +732,7 @@ CAD_FAST_STD_TYPES = {
     'DIN_933-1': DIN_933_1,
     'ISO_4026': ISO_4026,
     'DROP_IN_T_NUT_2020': DROP_IN_T_NUT_2020,
+    'SLIDING_T_NUT_2020': SLIDING_T_NUT_2020,
 }
 
 CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
