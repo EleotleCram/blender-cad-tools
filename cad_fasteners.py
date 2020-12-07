@@ -857,7 +857,8 @@ class CAD_FAST_OT_AddNew(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
+class CAD_FAST_PT_ItemNPanel(bpy.types.Panel):
+    """Creates the CAD Fasteners Panel in the Item Tab in the N-Panel of the 3D View"""
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Item"
@@ -892,7 +893,7 @@ class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
 classes = [
     CAD_FAST_ObjectProperties,
     CAD_FAST_OT_AddNew,
-    CAD_FAST_PT_ObjectPanel
+    CAD_FAST_PT_ItemNPanel
 ]
 
 
