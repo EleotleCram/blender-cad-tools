@@ -867,7 +867,9 @@ class CAD_FAST_PT_ItemNPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return len(context.selected_objects) > 0 and all(map(lambda ob: ob.mode != 'EDIT', context.selected_objects))
+        ob = next((o for o in context.selected_objects), None)
+
+        return ob and ob.cad_fast.is_fastener and ob.mode != 'EDIT'
 
     def draw(self, context):
         layout = self.layout
