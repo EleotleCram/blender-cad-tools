@@ -875,7 +875,6 @@ class CAD_FAST_PT_ItemNPanel(bpy.types.Panel):
         ob = next((o for o in context.selected_objects), None)
 
         if ob:
-            layout.row().prop(ob.cad_fast, 'is_fastener')
             if ob.cad_fast.is_fastener:
                 box = layout.row().box()
                 box.row().label(text="Type and Dimensions:")
@@ -890,10 +889,28 @@ class CAD_FAST_PT_ItemNPanel(bpy.types.Panel):
                     row.column().prop(ob.cad_fast, 'size_designator', text='Size')
 
 
+class CAD_FAST_PT_PropertiesWindowPanel(bpy.types.Panel):
+    """Creates the CAD Fasteners Panel in the Object properties window"""
+    bl_label = "CAD Fasteners"
+    bl_idname = "OBJECT_PT_CAD_FAST"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.active_object
+
+        if ob:
+            layout.row().prop(ob.cad_fast, 'is_fastener')
+
+
 classes = [
     CAD_FAST_ObjectProperties,
     CAD_FAST_OT_AddNew,
-    CAD_FAST_PT_ItemNPanel
+    CAD_FAST_PT_ItemNPanel,
+    CAD_FAST_PT_PropertiesWindowPanel,
 ]
 
 
