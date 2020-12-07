@@ -20,6 +20,7 @@
 
 import re
 from os import path
+import pathlib
 from string import Template
 from mathutils import Vector, Matrix
 from math import pi
@@ -145,6 +146,9 @@ CAD_FASTENERS_BLEND_FILENAME = "cad_fasteners.blend"
 CAD_FASTENERS_BLEND_FILEPATH = path.join(
     path.dirname(__file__), CAD_FASTENERS_BLEND_FILENAME)
 
+def cad_fast_template_file_timestamp_get():
+    return int(pathlib.Path(CAD_FASTENERS_BLEND_FILEPATH).stat().st_mtime)
+
 
 def cad_fast_collection_import(col_parent, col_name):
     # load collection from templates file
@@ -159,6 +163,9 @@ def cad_fast_template_collection_ensure():
     if bpy.data.filepath.endswith(CAD_FASTENERS_BLEND_FILENAME):
         return
 
+    if cad_fast_template_file_timestamp_get() <= bpy.context.scene.cad_fasteners_blend_timestamp:
+        return
+
     if not "CAD Fastener Templates" in bpy.data.collections:
         cad_fast_collection_import(
             bpy.context.scene.collection, "CAD Fastener Templates")
@@ -168,6 +175,9 @@ def cad_fast_template_collection_ensure():
 
         cad_fast_collection_import(
             bpy.data.collections["CAD Fastener Templates"], "CAD Fastener Master Templates")
+
+    # After successful import, update the stored timestamp:
+    bpy.context.scene.cad_fasteners_blend_timestamp = cad_fast_template_file_timestamp_get()
 
 
 def cad_fast_object_template_ensure(ob=None):
@@ -934,6 +944,12 @@ def register():
     bpy.types.Object.cad_fast = bpy.props.PointerProperty(
         name="CAD Fasteners Object Properties", type=CAD_FAST_ObjectProperties)
 
+    bpy.types.Scene.cad_fasteners_blend_timestamp = bpy.props.IntProperty(
+        name="cad_fasteners_blend_timestamp",
+        description="Time stamp of the included cad_fasteners.blend file objects",
+        default=0
+    )
+
 
 def unregister():
     for c in classes:
@@ -942,7 +958,7 @@ def unregister():
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
 
     del bpy.types.Object.cad_fast
-
+    del bpy.types.Scene.cad_fasteners_blend_timestamp
 
 if __name__ == "__main__":
     register()
