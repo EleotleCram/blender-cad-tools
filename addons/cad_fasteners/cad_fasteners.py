@@ -20,6 +20,7 @@
 
 import re
 from os import path
+import pathlib
 from string import Template
 from mathutils import Vector, Matrix
 from math import pi
@@ -145,6 +146,9 @@ CAD_FASTENERS_BLEND_FILENAME = "cad_fasteners.blend"
 CAD_FASTENERS_BLEND_FILEPATH = path.join(
     path.dirname(__file__), CAD_FASTENERS_BLEND_FILENAME)
 
+def cad_fast_template_file_timestamp_get():
+    return int(pathlib.Path(CAD_FASTENERS_BLEND_FILEPATH).stat().st_mtime)
+
 
 def cad_fast_collection_import(col_parent, col_name):
     # load collection from templates file
@@ -159,6 +163,9 @@ def cad_fast_template_collection_ensure():
     if bpy.data.filepath.endswith(CAD_FASTENERS_BLEND_FILENAME):
         return
 
+    if cad_fast_template_file_timestamp_get() <= bpy.context.scene.cad_fasteners_blend_timestamp:
+        return
+
     if not "CAD Fastener Templates" in bpy.data.collections:
         cad_fast_collection_import(
             bpy.context.scene.collection, "CAD Fastener Templates")
@@ -168,6 +175,9 @@ def cad_fast_template_collection_ensure():
 
         cad_fast_collection_import(
             bpy.data.collections["CAD Fastener Templates"], "CAD Fastener Master Templates")
+
+    # After successful import, update the stored timestamp:
+    bpy.context.scene.cad_fasteners_blend_timestamp = cad_fast_template_file_timestamp_get()
 
 
 def cad_fast_object_template_ensure(ob=None):
@@ -665,7 +675,18 @@ class DIN_934_1(MetricNut):
     }
 
 
-class DROP_IN_T_NUT_2020(MetricNut):
+class T_NUT(MetricNut):
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+        size_designator = cls.attr(ob, "size_designator")
+        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
+
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore.dimensions = (diam, diam, 10)
+        object_transform_apply(ob_bore)
+
+
+class DROP_IN_T_NUT_2020(T_NUT):
     name_template = '2020 ${size_designator} Drop In T-Nut'
     master_template = '2020 Drop In T-Nut'
     standard = 'DROP_IN_T_NUT_2020'
@@ -677,14 +698,20 @@ class DROP_IN_T_NUT_2020(MetricNut):
         # autopep8: on
     }
 
-    @classmethod
-    def construct(cls, ob_fastener_tpl, ob):
-        size_designator = cls.attr(ob, "size_designator")
-        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
 
-        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
-        ob_bore.dimensions = (diam, diam, 10)
-        object_transform_apply(ob_bore)
+class SLIDING_T_NUT_2020(T_NUT):
+    name_template = '2020 ${size_designator} Sliding T-Nut'
+    master_template = '2020 Sliding T-Nut'
+    standard = 'SLIDING_T_NUT_2020'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 9.8, 'h': 4.5},
+        'M4':   {'s': 9.8, 'h': 4.5},
+        'M5':   {'s': 9.8, 'h': 4.5},
+        'M6':   {'s': 9.8, 'h': 4.5},
+        # autopep8: on
+    }
+
 
 # (identifier, name, description, icon, number)
 CAD_FAST_STD_ENUM = [
@@ -702,6 +729,7 @@ CAD_FAST_STD_ENUM = [
     ('DIN_934-1', "Nut (DIN 934-1)", 'A Metric nut'),
     ('ISO_4026', "Set Screw (ISO 4026)", 'A Metric set screw'),
     ('DROP_IN_T_NUT_2020', "Drop In T-Nut (2020)", 'A Drop In T-Nut for a 2020 extrusion'),
+    ('SLIDING_T_NUT_2020', "Sliding T-Nut (2020)", 'A Sliding T-Nut for a 2020 extrusion'),
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -714,6 +742,7 @@ CAD_FAST_STD_TYPES = {
     'DIN_933-1': DIN_933_1,
     'ISO_4026': ISO_4026,
     'DROP_IN_T_NUT_2020': DROP_IN_T_NUT_2020,
+    'SLIDING_T_NUT_2020': SLIDING_T_NUT_2020,
 }
 
 CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
@@ -838,7 +867,8 @@ class CAD_FAST_OT_AddNew(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
+class CAD_FAST_PT_ItemNPanel(bpy.types.Panel):
+    """Creates the CAD Fasteners Panel in the Item Tab in the N-Panel of the 3D View"""
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Item"
@@ -847,7 +877,9 @@ class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return len(context.selected_objects) > 0 and all(map(lambda ob: ob.mode != 'EDIT', context.selected_objects))
+        ob = next((o for o in context.selected_objects), None)
+
+        return ob and ob.cad_fast.is_fastener and ob.mode != 'EDIT'
 
     def draw(self, context):
         layout = self.layout
@@ -855,7 +887,6 @@ class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
         ob = next((o for o in context.selected_objects), None)
 
         if ob:
-            layout.row().prop(ob.cad_fast, 'is_fastener')
             if ob.cad_fast.is_fastener:
                 box = layout.row().box()
                 box.row().label(text="Type and Dimensions:")
@@ -870,10 +901,28 @@ class CAD_FAST_PT_ObjectPanel(bpy.types.Panel):
                     row.column().prop(ob.cad_fast, 'size_designator', text='Size')
 
 
+class CAD_FAST_PT_PropertiesWindowPanel(bpy.types.Panel):
+    """Creates the CAD Fasteners Panel in the Object properties window"""
+    bl_label = "CAD Fasteners"
+    bl_idname = "OBJECT_PT_CAD_FAST"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.active_object
+
+        if ob:
+            layout.row().prop(ob.cad_fast, 'is_fastener')
+
+
 classes = [
     CAD_FAST_ObjectProperties,
     CAD_FAST_OT_AddNew,
-    CAD_FAST_PT_ObjectPanel
+    CAD_FAST_PT_ItemNPanel,
+    CAD_FAST_PT_PropertiesWindowPanel,
 ]
 
 
@@ -895,6 +944,12 @@ def register():
     bpy.types.Object.cad_fast = bpy.props.PointerProperty(
         name="CAD Fasteners Object Properties", type=CAD_FAST_ObjectProperties)
 
+    bpy.types.Scene.cad_fasteners_blend_timestamp = bpy.props.IntProperty(
+        name="cad_fasteners_blend_timestamp",
+        description="Time stamp of the included cad_fasteners.blend file objects",
+        default=0
+    )
+
 
 def unregister():
     for c in classes:
@@ -903,7 +958,7 @@ def unregister():
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
 
     del bpy.types.Object.cad_fast
-
+    del bpy.types.Scene.cad_fasteners_blend_timestamp
 
 if __name__ == "__main__":
     register()
