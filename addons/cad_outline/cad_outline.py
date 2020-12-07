@@ -457,107 +457,98 @@ def on_scene_updated(scene, depsgraph):
     if not scene.is_cad_outline_enabled:
         return
 
+    dprint("on_scene_updated")
+
+    def update_outline_meshes():
+        obs_updated = set()
+        obs_updated.update(flatten(
+            [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
+        # dprint("  `--> obs_updated", obs_updated)
+
+        # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
+        obs_updated_names = [ob.name for ob in obs_updated]
+
+        for ob_name in obs_updated_names:
+
+            if ob_name not in bpy.data.objects:
+                continue
+            else:
+                ob = bpy.data.objects[ob_name]
+
+            if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
+                ob_evaluated = ob.evaluated_get(depsgraph)
+                prev_hash = ob.cad_outline.evaluated_mesh_hash
+                new_hash = vertices_hash(ob_evaluated.data.vertices)
+                dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
+
+                if new_hash != prev_hash:
+                    ob.cad_outline.evaluated_mesh_hash = new_hash
+                    dprint("           `--> Mesh changed!")
+                    cad_outline_mesh_update(ob, ob_evaluated)
+
+    def sync_visibility():
+        for ob in bpy.data.objects:
+            if ob.cad_outline.is_enabled:
+                should_be_hidden = not ob.visible_get() or ob.mode == 'EDIT'
+                cad_outline_object_hide_set(ob, should_be_hidden)
+
+    def sync_local_view():
+        local_view_space = next(
+            (area.spaces[0] for area in bpy.context.screen.areas
+                if area.type == 'VIEW_3D' and area.spaces[0].local_view),
+            None
+        )
+        if local_view_space is not None:
+            for ob in bpy.context.selected_objects:
+                if ob.cad_outline.is_enabled:
+                    # @TODO Use ob.local_view_get(local_view_space) to test
+                    #       which objects are actually in the local_view
+                    # (function currently broken in Blender; always returns False :/ )
+                    ob_outline = cad_outline_object_ensure(ob)
+                    ob_outline.local_view_set(local_view_space, True)
+
+    def sync_instances():
+        cols_instanced = set()
+        cols_instanced.update(
+            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None])
+        for col_instanced in cols_instanced:
+            obs = collection_objects_get(col_instanced)
+            # dprint("Collection: ", col_instanced, "obs: ", obs)
+            col_outline_node = cad_outline_collection_ensure(col_instanced)
+            for ob in obs:
+                # dprint("ob", ob, "ob.cad_outline.is_enabled", ob.cad_outline.is_enabled)
+                if ob.cad_outline.is_enabled:
+                    ob_outline = cad_outline_object_ensure(ob)
+                    if not ob_outline.name in col_outline_node.objects:
+                        col_outline_node.objects.link(ob_outline)
+
+    def clean_up_stale_outlines():
+        # Clean up stale outline objects (for instance after rename or delete of original object):
+        col_outline = cad_outline_collection_ensure()
+        for ob_outline in col_outline.objects:
+            ob_name = ob_outline.name[0:-3]  # <-- This just strips off the ".ol"
+            if ob_name not in bpy.data.objects:
+                dprint("cleanup ob_outline", ob_outline.name)
+                bpy.data.objects.remove(ob_outline, do_unlink=True)
+            # else:
+            #     dprint("original ob (%s) for ob_outline (%s) still exists, not cleaning up" % (
+            #         ob_name, ob_outline.name))
+
     # start_time = time.time()
 
-    # Update outline meshes
-    # dprint("on_scene_updated")
-    obs_updated = set()
-    obs_updated.update(flatten(
-        [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
-    # dprint("  `--> obs_updated", obs_updated)
+    update_outline_meshes()
 
-    # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
-    obs_updated_names = [ob.name for ob in obs_updated]
+    sync_visibility()
 
-    for ob_name in obs_updated_names:
+    sync_local_view()
 
-        if ob_name not in bpy.data.objects:
-            continue
-        else:
-            ob = bpy.data.objects[ob_name]
+    sync_instances()
 
-        if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
-            ob_evaluated = ob.evaluated_get(depsgraph)
-            prev_hash = ob.cad_outline.evaluated_mesh_hash
-            new_hash = vertices_hash(ob_evaluated.data.vertices)
-            dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
-
-            if new_hash != prev_hash:
-                ob.cad_outline.evaluated_mesh_hash = new_hash
-                dprint("           `--> Mesh changed!")
-                cad_outline_mesh_update(ob, ob_evaluated)
-
-    # Sync visibility
-    for ob in bpy.data.objects:
-        if ob.cad_outline.is_enabled and ob.mode != 'EDIT':
-            should_be_hidden = not ob.visible_get()
-            cad_outline_object_hide_set(ob, should_be_hidden)
-
-    # Sync local_view
-    local_view_space = next(
-        (area.spaces[0] for area in bpy.context.screen.areas
-            if area.type == 'VIEW_3D' and area.spaces[0].local_view),
-        None
-    )
-    if local_view_space is not None:
-        for ob in bpy.context.selected_objects:
-            if ob.cad_outline.is_enabled:
-                # @TODO Use ob.local_view_get(local_view_space) to test
-                #       which objects are actually in the local_view
-                # (function currently broken in Blender; always returns False :/ )
-                ob_outline = cad_outline_object_ensure(ob)
-                ob_outline.local_view_set(local_view_space, True)
-
-    # Sync instances
-    cols_instanced = set()
-    cols_instanced.update(
-        [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None])
-    for col_instanced in cols_instanced:
-        obs = collection_objects_get(col_instanced)
-        # dprint("Collection: ", col_instanced, "obs: ", obs)
-        col_outline_node = cad_outline_collection_ensure(col_instanced)
-        for ob in obs:
-            # dprint("ob", ob, "ob.cad_outline.is_enabled", ob.cad_outline.is_enabled)
-            if ob.cad_outline.is_enabled:
-                ob_outline = cad_outline_object_ensure(ob)
-                if not ob_outline.name in col_outline_node.objects:
-                    col_outline_node.objects.link(ob_outline)
-
-    # Clean up stale outline objects (for instance after rename or delete of original object):
-    col_outline = cad_outline_collection_ensure()
-    for ob_outline in col_outline.objects:
-        ob_name = ob_outline.name[0:-3]  # <-- This just strips off the ".ol"
-        if ob_name not in bpy.data.objects:
-            dprint("cleanup ob_outline", ob_outline.name)
-            bpy.data.objects.remove(ob_outline, do_unlink=True)
-        else:
-            dprint("original ob (%s) for ob_outline (%s) still exists, not cleaning up" % (
-                ob_name, ob_outline.name))
+    clean_up_stale_outlines()
 
     # elapsed_time = time.time() - start_time
     # dprint("on_scene_updated.elapsed_time", elapsed_time * 1000)
 
-
-def on_object_mode_changed():
-    ob = bpy.context.active_object
-
-    if ob.cad_outline.is_enabled:
-        # dprint("on_object_mode_changed", ob, ob.mode)
-        if(ob.mode == 'EDIT'):
-            cad_outline_object_hide_set(ob, True)
-        else:
-            cad_outline_object_hide_set(ob, False)
-
-            ob_evaluated = ob.evaluated_get(
-                bpy.context.evaluated_depsgraph_get())
-            cad_outline_mesh_update(ob, ob_evaluated)
-
-
-######
-# Note: Not supported yet in Blender 2.82:
-#
-# def on_local_view_changed():
-#     dprint("on_local_view_changed", bpy.context.space_data.local_view)
 
 ############# Blender Extension Classes ##############
 
@@ -661,8 +652,6 @@ classes = [
 
 ############# Register/Unregister Hooks ##############
 
-cad_outline_msgbus_owner = object()
-
 
 def register():
     for c in classes:
@@ -680,23 +669,6 @@ def register():
     bpy.app.handlers.depsgraph_update_post.append(on_scene_updated)
     bpy.app.handlers.load_post.append(on_load_handler)
 
-    bpy.msgbus.subscribe_rna(
-        key=(bpy.types.Object, "mode"),
-        owner=cad_outline_msgbus_owner,
-        args=(),
-        notify=on_object_mode_changed,
-    )
-
-    ######
-    # Note: Not supported yet in Blender 2.82:
-    #
-    # bpy.msgbus.subscribe_rna(
-    #     key=(bpy.types.SpaceView3D, "local_view"),
-    #     owner=cad_outline_msgbus_owner,
-    #     args=(),
-    #     notify=on_local_view_changed,
-    # )
-
 
 def unregister():
     for c in classes:
@@ -707,8 +679,6 @@ def unregister():
 
     bpy.app.handlers.depsgraph_update_post.remove(on_scene_updated)
     bpy.app.handlers.load_post.remove(on_load_handler)
-
-    bpy.msgbus.clear_by_owner(cad_outline_msgbus_owner)
 
 
 if __name__ == "__main__":
