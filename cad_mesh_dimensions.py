@@ -346,6 +346,7 @@ def register():
         default=(0, 0, 0),
         subtype='XYZ',
         unit='LENGTH',
+        precision=4,
         update=on_edit_dimensions_prop_changed
     )
 
