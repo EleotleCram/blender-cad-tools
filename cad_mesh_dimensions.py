@@ -18,6 +18,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from threading import Timer
+import numpy as np
+import time
 from bpy.app.handlers import persistent
 from mathutils import Vector, Matrix
 from bpy.props import FloatProperty, PointerProperty
@@ -38,6 +41,25 @@ bl_info = {
 }
 
 
+########### Automatic PIP Dependency Installation ###########
+
+try:
+    import xxhash
+except:
+    import subprocess
+
+    pybin = bpy.app.binary_path_python
+
+    # upgrade pip
+    subprocess.call([pybin, "-m", "ensurepip"])
+    subprocess.call([pybin, "-m", "pip", "install", "--upgrade", "pip"])
+
+    # install required packages
+    subprocess.call([pybin, "-m", "pip", "install", "xxhash"])
+
+    import xxhash
+
+
 ############# Generic Python Utility Functions ##############
 
 def safe_divide(a, b):
@@ -45,11 +67,73 @@ def safe_divide(a, b):
         return a / b
     return 1
 
+
+def flatten(t):
+    return [item for sublist in t for item in sublist]
+
+
+def vertices_hash(vertices):
+    # start_time = time.time()
+
+    if hasattr(vertices, 'foreach_get'):
+        count = len(vertices)
+        verts = np.empty(count*3, dtype=np.float64)
+        vertices.foreach_get('co', verts)
+    else:
+        verts = np.array(flatten([
+            (v.co.x, v.co.y, v.co.z) for v in vertices
+        ]), dtype=np.float64)
+
+    h = xxhash.xxh32(seed=20141025)
+    h.update(verts)
+    __hash = h.intdigest()
+
+    # elapsed_time = time.time() - start_time
+    # print("elapsed_time", elapsed_time * 1000)
+
+    # The - 0x7fffffff is because Blender appears to
+    # insist on a signed value, and this function
+    # does not care, as long as the value is consistent.
+    return __hash - 0x7fffffff
+
+
+def get_current_time_millis():
+    return int(round(time.time() * 1000))
+
+
+def throttled(timeout):
+    def decorator_func(callback):
+        timer = None
+        millis_prev = 0
+
+        def throttled_func(*args):
+            nonlocal timer, millis_prev
+
+            def do_callback(*args):
+                nonlocal timer
+                timer = None
+                callback(*args)
+
+            millis_cur = get_current_time_millis()
+            if millis_cur - millis_prev > timeout:
+                millis_prev = millis_cur
+                do_callback(*args)
+            else:
+                if timer is not None:
+                    timer.cancel()
+
+                timer = Timer(timeout/1000, do_callback, args)
+                timer.start()
+
+        return throttled_func
+
+    return decorator_func
+
 ############ Generic Blender Utility Functions #############
 
 
-def calc_bounds_verts(selected_verts):
-    matrix_world = bpy.context.object.matrix_world
+def calc_bounds_verts(ob, selected_verts):
+    matrix_world = ob.matrix_world
     v_coords = list(map(lambda v: Vector(matrix_world @ v.co), selected_verts))
 
     # @TODO What to do with this?
@@ -96,7 +180,7 @@ def calc_bounds():
 
     verts = [v for v in bme.verts if v.select]
 
-    bounds = calc_bounds_verts(verts)
+    bounds = calc_bounds_verts(bpy.context.object, verts)
 
     bme.free()
 
@@ -197,68 +281,57 @@ classes = [
 
 ############# SpaceView3D Draw Handler ##############
 
+
+hash_prev = 0
 bmeshes_from_edit_mesh = {}
-prev_select_history_len = 0
-prev_select_history_active = None
 handle = None
 
 
-def spaceview3d_draw_handler():
-    global prev_select_history_len, prev_select_history_active
-    should_refresh = False
+def update_dimensions(ob, selected_verts):
+    bounds = calc_bounds_verts(ob, selected_verts)
+
+    global internal_update
     context = bpy.context
-    obj = context.active_object
-    meshes = set(o.data for o in ([obj] + context.selected_objects) if o != None and o.mode == 'EDIT')
+    wm = context.window_manager
+
+    internal_update = True
+    wm.edit_dimensions[0] = bounds["x"]
+    wm.edit_dimensions[1] = bounds["y"]
+    wm.edit_dimensions[2] = bounds["z"]
+    internal_update = False
+
+
+@throttled(100)
+def update_dimensions_if_changed(ob, bme):
+    global hash_prev
+
+    selected_verts = [v for v in bme.verts if v.select]
+
+    hash_cur = vertices_hash(selected_verts)
+
+    if hash_prev != hash_cur:
+        hash_prev = hash_cur
+
+        update_dimensions(ob, selected_verts)
+
+
+def spaceview3d_draw_handler():
+    context = bpy.context
+    ob = context.active_object
+    meshes = set(o.data for o in ([ob] + context.selected_objects) if o != None and o.mode == 'EDIT')
     if context.mode == 'EDIT_MESH':
         for m in meshes:
             if not m.name in bmeshes_from_edit_mesh:
                 bmeshes_from_edit_mesh[m.name] = bmesh.from_edit_mesh(m)
-                should_refresh = True
-            # else:
-            #     del bmeshes_from_edit_mesh[m.name]
-
-            # # print("update edit mesh for", m.name)
-            # bmeshes_from_edit_mesh.setdefault(m.name, bmesh.from_edit_mesh(m))
     else:
         bmeshes_from_edit_mesh.clear()
-        prev_select_history_active = None
         return
 
-    mesh = obj.data
+    me = ob.data
 
-    if mesh.name in bmeshes_from_edit_mesh:
-        # print("edit_mesh: Update")
-        bme = bmeshes_from_edit_mesh[mesh.name]
-        select_history = bme.select_history
-
-        # @TODO if select mode is not vertex, efficiently get verts from selected items
-        # if len(select_history):
-        #     selected_verts = [v for v in select_history]
-        # else:
-        #     selected_verts = [v for v in bme.verts if v.select]
-        # So for now:
-        selected_verts = [v for v in bme.verts if v.select]
-
-        cur_select_history_len = len(selected_verts)
-
-        if (should_refresh or
-                prev_select_history_active != select_history.active or
-                prev_select_history_len != cur_select_history_len):
-
-            prev_select_history_active = select_history.active
-            prev_select_history_len = cur_select_history_len
-            bounds = calc_bounds_verts(selected_verts)
-
-            global internal_update
-            wm = context.window_manager
-
-            internal_update = True
-            wm.edit_dimensions[0] = bounds["x"]
-            wm.edit_dimensions[1] = bounds["y"]
-            wm.edit_dimensions[2] = bounds["z"]
-            internal_update = False
-    else:
-        print("edit_mesh: No update")
+    if me.name in bmeshes_from_edit_mesh:
+        bme = bmeshes_from_edit_mesh[me.name]
+        update_dimensions_if_changed(ob, bme)
 
 ############# Register/Unregister Hooks ##############
 
