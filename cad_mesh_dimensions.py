@@ -316,6 +316,8 @@ def update_dimensions_if_changed(ob, bme):
 
 
 def spaceview3d_draw_handler():
+    global hash_prev
+
     context = bpy.context
     ob = context.active_object
     meshes = set(o.data for o in ([ob] + context.selected_objects) if o != None and o.mode == 'EDIT')
@@ -325,6 +327,7 @@ def spaceview3d_draw_handler():
                 bmeshes_from_edit_mesh[m.name] = bmesh.from_edit_mesh(m)
     else:
         bmeshes_from_edit_mesh.clear()
+        hash_prev = 0
         return
 
     me = ob.data
