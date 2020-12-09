@@ -87,10 +87,9 @@ int_to_four_bytes = struct.Struct('<I').pack
 #
 # arg(s: string) - input string to be hashed
 #
-
-
 def hash_djb2_string(s):
     return reduce(lambda h, c: ord(c) + ((h << 5) + h), s, 5381) & 0xFFFFFFFF
+
 
 ############
 #
@@ -103,8 +102,6 @@ def hash_djb2_string(s):
 #       with `__hash = 5381` for best experience
 #
 # Non-standard naming for avoid collision with builtin function:
-
-
 def hash_djb2_inc(__hash, i):
     for x in int_to_four_bytes(i & 0xFFFFFFFF):
         __hash = ((__hash << 5) + __hash) + x
