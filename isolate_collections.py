@@ -18,6 +18,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import bpy
+
+
 bl_info = {
     "name": "Isolate Collection Layers",
     "author": "Marcel Toele",
@@ -30,9 +33,9 @@ bl_info = {
     "category": "3D View",
 }
 
-import bpy
 
 ############# Generic Python Utility Functions ##############
+
 
 def flatten(l):
     """Flatten arbitrarily nested list"""
@@ -45,18 +48,22 @@ def flatten(l):
 
     return list(flatten_(l))
 
+
 ############ Generic Blender Utility Functions #############
 
+
 def as_list(node):
-#    print("traversing %s" % node.name)
+    #    print("traversing %s" % node.name)
     head = []
     if node.name != "Master Collection":
         head = [node]
     return head + flatten([as_list(c) for c in node.children])
 
+
 # @TODO
 def ancestors(node):
     return []
+
 
 def is_part_of_isolation_layer(collection, layer_id):
     if collection.get("isolation_layer", 0) == layer_id:
@@ -65,9 +72,9 @@ def is_part_of_isolation_layer(collection, layer_id):
         for c in collection.children:
             if is_part_of_isolation_layer(c, layer_id):
                 return True
-    
+
     return False
-    
+
 
 def is_isolation_mode_on(context, layer_id):
     layer_collections = as_list(context.view_layer.layer_collection)
@@ -77,7 +84,7 @@ def is_isolation_mode_on(context, layer_id):
         if lc.hide_viewport:
             some_collections_are_hidden = True
 
-        collection =  bpy.data.collections[lc.name]
+        collection = bpy.data.collections[lc.name]
         if collection.get("isolation_layer", 0) == layer_id:
             all_collections_in_isolation_layer_are_fully_visible = (
                 all_collections_in_isolation_layer_are_fully_visible and
@@ -87,15 +94,17 @@ def is_isolation_mode_on(context, layer_id):
 
     return some_collections_are_hidden and all_collections_in_isolation_layer_are_fully_visible
 
+
 def isolate_collection_layer(context, layer_id):
-#    print("isolate collection layer: %d" % layer_id)
+    #    print("isolate collection layer: %d" % layer_id)
     should_isolate = not is_isolation_mode_on(context, layer_id)
     layer_collections = as_list(context.view_layer.layer_collection)
     if should_isolate:
         collections_in_layer = [c for c in bpy.data.collections if c.get("isolation_layer", 0) in [layer_id, -1]]
-        visible_collections =  flatten([as_list(c) for c in collections_in_layer]) + flatten([ancestors(c) for c in collections_in_layer])
+        visible_collections = flatten([as_list(c) for c in collections_in_layer]) + \
+            flatten([ancestors(c) for c in collections_in_layer])
         for lc in layer_collections:
-            collection =  bpy.data.collections[lc.name]
+            collection = bpy.data.collections[lc.name]
             lc.hide_viewport = not collection in visible_collections
     else:
         for lc in layer_collections:
@@ -115,6 +124,7 @@ def isolate_collection_layer(context, layer_id):
 
 ############# Blender Extension Classes ##############
 
+
 class IsolateCollectionsPanel(bpy.types.Panel):
     """Creates the Isolate-Collections Panel in the Object properties window"""
     bl_label = "Isolate Collections"
@@ -132,6 +142,7 @@ class IsolateCollectionsPanel(bpy.types.Panel):
             active_collection = bpy.data.collections[active_collection_name]
             row.prop(active_collection, "isolation_layer")
 
+
 def IsolateCollectionLayerOperator(layer_id):
     class IsolateCollectionLayerOperator_(bpy.types.Operator):
         """Isolate Collection Layer"""
@@ -144,12 +155,14 @@ def IsolateCollectionLayerOperator(layer_id):
 
     return IsolateCollectionLayerOperator_
 
+
 operators = [IsolateCollectionLayerOperator(layer_num) for layer_num in range(1, 10)]
 
 # store keymaps here to access after registration
 addon_keys = []
 
 ############# Register/Unregister Hooks ##############
+
 
 def register():
     bpy.utils.register_class(IsolateCollectionsPanel)
@@ -172,6 +185,7 @@ def register():
     for operator, key_name in zip(operators, ('ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE')):
         kmi = km.keymap_items.new(operator.bl_idname, key_name, 'PRESS', ctrl=False, shift=False)
         addon_keys.append((km, kmi))
+
 
 def unregister():
     bpy.utils.unregister_class(IsolateCollectionsPanel)
