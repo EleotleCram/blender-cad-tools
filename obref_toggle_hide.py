@@ -1,6 +1,6 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
-#  Bool Toggle Hide - Toggle visibility of boolean modifier objects
+#  ObRef Toggle Hide - Toggle visibility of referenced modifier objects
 #  Copyright (C) 2020  Marcel Toele
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,12 @@ import bpy
 
 
 bl_info = {
-    "name": "Boolean Toggle Hide",
+    "name": "ObRef Toggle Hide",
     "author": "Marcel Toele",
     "version": (1, 0),
     "blender": (2, 80, 0),
     "location": "View3D",
-    "description": "Toggle visibility of boolean modifier objects",
+    "description": "Toggle visibility of referenced modifier objects",
     "warning": "",
     "wiki_url": "",
     "category": "3D View",
@@ -37,12 +37,12 @@ bl_info = {
 ############# Blender Extension Classes ##############
 
 
-class BTH_OT_BoolToggleHide(bpy.types.Operator):
-    bl_idname = "bth.bool_toggle_hide"
-    bl_label = "(un)Hide Boolean Modifier Objects"
+class ORTH_OT_ToggleHide(bpy.types.Operator):
+    bl_idname = "orth.toggle_hide"
+    bl_label = "(un)Hide Modifier Objects"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = """Toggles the visibility
-of all the boolean modifier objects
+of all the referenced modifier objects
 """
 
     @classmethod
@@ -79,11 +79,11 @@ of all the boolean modifier objects
         return {'FINISHED'}
 
 
-class BTH_PT_BoolToggleHide(bpy.types.Panel):
+class ORTH_PT_BoolToggleHide(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Item"
-    bl_label = "Bool Toggle Hide"
+    bl_label = "Toggle Hide"
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
@@ -93,12 +93,12 @@ class BTH_PT_BoolToggleHide(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator('bth.bool_toggle_hide')
+        layout.operator('orth.toggle_hide')
 
 
 classes = [
-    BTH_OT_BoolToggleHide,
-    BTH_PT_BoolToggleHide,
+    ORTH_OT_ToggleHide,
+    ORTH_PT_BoolToggleHide,
 ]
 
 
