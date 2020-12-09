@@ -369,7 +369,7 @@ def register():
         name="Transform Anchor Point",
         description="Anchor Point for Edit Dimension Transformations",
         items=transform_anchor_point_enum,
-        default='ACTIVE_ELEMENT'
+        default='OBJECT_ORIGIN'
     )
 
     bpy.app.handlers.undo_post.append(on_undo_redo)
