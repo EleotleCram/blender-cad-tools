@@ -190,9 +190,10 @@ def calc_bounds():
 
 
 def edit_dimensions(new_x, new_y, new_z):
+    ob = bpy.context.object
     bounds = calc_bounds()
-    if bpy.context.object.mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+    if ob.mode != 'EDIT':
+        ob.mode_set(mode='EDIT')
     x = safe_divide(new_x, bounds["x"])
     y = safe_divide(new_y, bounds["y"])
     z = safe_divide(new_z, bounds["z"])
@@ -208,12 +209,12 @@ def edit_dimensions(new_x, new_y, new_z):
 
     wm = bpy.context.window_manager
 
-    if wm.edit_dimensions_anchor in ['CURSOR', 'MEDIAN_POINT', 'ACTIVE_ELEMENT']:
-        bpy.context.tool_settings.transform_pivot_point = wm.edit_dimensions_anchor
-    elif wm.edit_dimensions_anchor == 'OBJECT_ORIGIN':
-        bpy.context.scene.cursor.location = bpy.context.object.location.copy()
+    if ob.cad_mesh_dimensions_anchor in ['CURSOR', 'MEDIAN_POINT', 'ACTIVE_ELEMENT']:
+        bpy.context.tool_settings.transform_pivot_point = ob.cad_mesh_dimensions_anchor
+    elif ob.cad_mesh_dimensions_anchor == 'OBJECT_ORIGIN':
+        bpy.context.scene.cursor.location = ob.location.copy()
         bpy.context.tool_settings.transform_pivot_point = 'CURSOR'
-    elif wm.edit_dimensions_anchor == 'TOOL_SETTINGS':
+    elif ob.cad_mesh_dimensions_anchor == 'TOOL_SETTINGS':
         pass
 
     bpy.ops.transform.resize(value=(x, y, z))
@@ -259,13 +260,14 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
+        ob = context.object
         wm = context.window_manager
 
         box = layout.box()
         box.prop(wm, 'cad_mesh_dimensions')
         row = box.row()
         row.label(text="Transform Anchor Point:")
-        row.prop(wm, 'edit_dimensions_anchor', icon_only=True)
+        row.prop(ob, 'cad_mesh_dimensions_anchor', icon_only=True)
 
 
 class CAD_DIM_EditDimensionProperties(bpy.types.PropertyGroup):
@@ -363,7 +365,7 @@ def register():
          'Transform from whatever is currently configured as the Transform Pivot Point in the Tool Settings', 'BLENDER', 4)
     ]
 
-    bpy.types.WindowManager.edit_dimensions_anchor = bpy.props.EnumProperty(
+    bpy.types.Object.cad_mesh_dimensions_anchor = bpy.props.EnumProperty(
         name="Transform Anchor Point",
         description="Anchor Point for Edit Dimension Transformations",
         items=transform_anchor_point_enum,
@@ -384,7 +386,7 @@ def unregister():
         bpy.utils.unregister_class(c)
 
     del bpy.types.WindowManager.cad_mesh_dimensions
-    del bpy.types.WindowManager.edit_dimensions_anchor
+    del bpy.types.Object.cad_mesh_dimensions_anchor
 
     bpy.app.handlers.undo_post.remove(on_undo_redo)
     bpy.app.handlers.redo_post.remove(on_undo_redo)
