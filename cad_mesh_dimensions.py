@@ -232,9 +232,9 @@ internal_update = False
 def on_edit_dimensions_prop_changed(self, context):
     if not internal_update:
         bpy.ops.ed.undo_push()
-        edit_dimensions(self.edit_dimensions.x,
-                        self.edit_dimensions.y,
-                        self.edit_dimensions.z)
+        edit_dimensions(self.cad_mesh_dimensions.x,
+                        self.cad_mesh_dimensions.y,
+                        self.cad_mesh_dimensions.z)
 
 
 @persistent
@@ -262,7 +262,7 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
         wm = context.window_manager
 
         box = layout.box()
-        box.prop(wm, 'edit_dimensions')
+        box.prop(wm, 'cad_mesh_dimensions')
         row = box.row()
         row.label(text="Transform Anchor Point:")
         row.prop(wm, 'edit_dimensions_anchor', icon_only=True)
@@ -295,9 +295,9 @@ def update_dimensions(ob, selected_verts):
     wm = context.window_manager
 
     internal_update = True
-    wm.edit_dimensions[0] = bounds["x"]
-    wm.edit_dimensions[1] = bounds["y"]
-    wm.edit_dimensions[2] = bounds["z"]
+    wm.cad_mesh_dimensions[0] = bounds["x"]
+    wm.cad_mesh_dimensions[1] = bounds["y"]
+    wm.cad_mesh_dimensions[2] = bounds["z"]
     internal_update = False
 
 
@@ -343,7 +343,7 @@ def register():
     for c in classes:
         bpy.utils.register_class(c)
 
-    bpy.types.WindowManager.edit_dimensions = bpy.props.FloatVectorProperty(
+    bpy.types.WindowManager.cad_mesh_dimensions = bpy.props.FloatVectorProperty(
         name="Dimensions:",
         min=0,
         default=(0, 0, 0),
@@ -383,7 +383,7 @@ def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
 
-    del bpy.types.WindowManager.edit_dimensions
+    del bpy.types.WindowManager.cad_mesh_dimensions
     del bpy.types.WindowManager.edit_dimensions_anchor
 
     bpy.app.handlers.undo_post.remove(on_undo_redo)
