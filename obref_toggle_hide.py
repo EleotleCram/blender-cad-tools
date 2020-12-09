@@ -18,6 +18,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import bpy
+
+
 bl_info = {
     "name": "Boolean Toggle Hide",
     "author": "Marcel Toele",
@@ -30,9 +33,9 @@ bl_info = {
     "category": "3D View",
 }
 
-import bpy
 
 ############# Blender Extension Classes ##############
+
 
 class BTH_OT_BoolToggleHide(bpy.types.Operator):
     bl_idname = "bth.bool_toggle_hide"
@@ -75,6 +78,7 @@ of all the boolean modifier objects
 
         return {'FINISHED'}
 
+
 class BTH_PT_BoolToggleHide(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -91,12 +95,15 @@ class BTH_PT_BoolToggleHide(bpy.types.Panel):
 
         layout.operator('bth.bool_toggle_hide')
 
+
 classes = [
     BTH_OT_BoolToggleHide,
     BTH_PT_BoolToggleHide,
 ]
 
+
 ############# Register/Unregister Hooks ##############
+
 
 def register():
     for c in classes:
