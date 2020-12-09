@@ -1,6 +1,6 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
-#  Boolean Constraint Tools - Manage (child-of) constraints of boolean modifier objects
+#  Auto Constraint Tools - Manage (child-of) constraints of referenced objects
 #  Copyright (C) 2020  Marcel Toele
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,12 @@ from mathutils import Vector, Matrix
 from bpy.app.handlers import persistent
 import bpy
 bl_info = {
-    "name": "Boolean Constraint Tools",
+    "name": "Auto Constraint Tools",
     "author": "Marcel Toele",
     "version": (1, 0),
     "blender": (2, 80, 0),
     "location": "View3D",
-    "description": "Manage (child-of) constraints of boolean modifier objects",
+    "description": "Manage (child-of) constraints of referenced objects",
     "warning": "",
     "wiki_url": "",
     "category": "3D View",
@@ -98,7 +98,7 @@ def calc_matrix_world(obj):
 def add_boolean_childof_constraint(obj, modifier):
     if get_boolean_childof_constraint(obj, modifier) == None:
         constraint = modifier.object.constraints.new(type='CHILD_OF')
-        if obj.bct.ignore_scale:
+        if obj.act.ignore_scale:
             constraint.use_scale_x = False
             constraint.use_scale_y = False
             constraint.use_scale_z = False
@@ -133,8 +133,8 @@ internal_update = False
 def on_bool_childof_constraint_prop_updated(self, context):
     if not internal_update:
         obj = context.active_object
-        obj.bct.auto_constraint = False
-        i = index_of(obj.bct.constraint_children, self)
+        obj.act.auto_constraint = False
+        i = index_of(obj.act.constraint_children, self)
         all_boolean_modifiers = get_all_boolean_modifiers(obj)
         modifier = all_boolean_modifiers[i]
         set_boolean_childof_constraint(obj, modifier, self.value)
@@ -142,21 +142,21 @@ def on_bool_childof_constraint_prop_updated(self, context):
 
 def on_toggle_all_bool_childof_constraint_prop_updated(self, context):
     if not internal_update:
-        bct = self
-        bct.auto_constraint = False
+        act = self
+        act.auto_constraint = False
         obj = context.active_object
-        set_all_boolean_childof_constraints(obj, bct.is_childof_constraints_all)
+        set_all_boolean_childof_constraints(obj, act.is_childof_constraints_all)
 
 
 def on_auto_constraint_prop_updated(self, context):
-    bct = self
+    act = self
     obj = context.active_object
-    if bct.auto_constraint:
+    if act.auto_constraint:
         set_all_boolean_childof_constraints(obj, True)
 
 
 def on_ignore_scale_prop_updated(self, context):
-    bct = self
+    act = self
     obj = context.active_object
     all_boolean_modifiers_with_active_childof_constraints = get_all_boolean_modifiers_with_active_childof_constraints(
         obj)
@@ -181,17 +181,17 @@ def on_scene_updated(scene, depsgraph):
 
     # Make sure there are exactly as many constraint_children as
     # there are objects referenced by the boolean modifiers
-    while len(obj.bct.constraint_children) > len(all_boolean_modifiers):
-        obj.bct.constraint_children.remove(0)
+    while len(obj.act.constraint_children) > len(all_boolean_modifiers):
+        obj.act.constraint_children.remove(0)
 
-    while len(obj.bct.constraint_children) < len(all_boolean_modifiers):
-        obj.bct.constraint_children.add()
+    while len(obj.act.constraint_children) < len(all_boolean_modifiers):
+        obj.act.constraint_children.add()
 
     global cached_active_object
     if cached_active_object != bpy.context.active_object:
         cached_active_object = bpy.context.active_object
         # Active object updated, so apply auto-constraint (if applicable):
-        if(obj.bct.auto_constraint):
+        if(obj.act.auto_constraint):
             set_all_boolean_childof_constraints(obj, True)
 
     global internal_update
@@ -199,12 +199,12 @@ def on_scene_updated(scene, depsgraph):
     internal_update = True
     ######################
     # Sync the values
-    for modifier, constraint_child in zip(all_boolean_modifiers, obj.bct.constraint_children):
+    for modifier, constraint_child in zip(all_boolean_modifiers, obj.act.constraint_children):
         is_boolean_object_constraint_by_obj = get_boolean_childof_constraint(obj, modifier) != None
         # print("is_boolean_object_constraint_by_obj", is_boolean_object_constraint_by_obj)
         constraint_child.value = is_boolean_object_constraint_by_obj
 
-    obj.bct.is_childof_constraints_all = all(map(lambda e: e.value, obj.bct.constraint_children))
+    obj.act.is_childof_constraints_all = all(map(lambda e: e.value, obj.act.constraint_children))
     ######################
     internal_update = False
     ######################
@@ -213,13 +213,13 @@ def on_scene_updated(scene, depsgraph):
 ############# Blender Extension Classes ##############
 
 
-class BCT_BooleanChildOfConstraintProperty(bpy.types.PropertyGroup):
+class ACT_BooleanChildOfConstraintProperty(bpy.types.PropertyGroup):
     value: bpy.props.BoolProperty(
         description="Add a child-of constraint to the target object which is parented to the active object", update=on_bool_childof_constraint_prop_updated)
 
 
-class BCT_BooleanChildOfConstraintObjectProperties(bpy.types.PropertyGroup):
-    constraint_children: bpy.props.CollectionProperty(type=BCT_BooleanChildOfConstraintProperty)
+class ACT_BooleanChildOfConstraintObjectProperties(bpy.types.PropertyGroup):
+    constraint_children: bpy.props.CollectionProperty(type=ACT_BooleanChildOfConstraintProperty)
     is_childof_constraints_all: bpy.props.BoolProperty(
         default=True, description="Remove or add all child-of constraints at once", update=on_toggle_all_bool_childof_constraint_prop_updated)
     auto_constraint: bpy.props.BoolProperty(
@@ -228,10 +228,10 @@ class BCT_BooleanChildOfConstraintObjectProperties(bpy.types.PropertyGroup):
         default=False, description="Ignore scale when adding constraints", update=on_ignore_scale_prop_updated)
 
 
-class BCT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
+class ACT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
     """Creates the Boolean Contraint Tools Panel in the Object properties window"""
     bl_label = "Boolean Constraint Tools"
-    bl_idname = "OBJECT_PT_BCT_CONSTRAINT"
+    bl_idname = "OBJECT_PT_ACT_CONSTRAINT"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "constraint"
@@ -241,14 +241,14 @@ class BCT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
 
         obj = context.object
 
-        if len(obj.bct.constraint_children):
+        if len(obj.act.constraint_children):
             row = layout.row()
             row.alignment = 'CENTER'
             row.label(text="Boolean Modifier Objects")
 
             all_boolean_modifiers = get_all_boolean_modifiers(obj)
 
-            for modifier, constraint_child in zip(all_boolean_modifiers, obj.bct.constraint_children):
+            for modifier, constraint_child in zip(all_boolean_modifiers, obj.act.constraint_children):
                 row = layout.row()
                 row.label(text=modifier.object.name)
                 row.prop(constraint_child, 'value', text="")
@@ -256,7 +256,7 @@ class BCT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
             row = layout.row()
             row.alignment = 'RIGHT'
             row.label(text="Toggle All")
-            row.prop(obj.bct, 'is_childof_constraints_all', text="")
+            row.prop(obj.act, 'is_childof_constraints_all', text="")
 
         else:
             row = layout.row()
@@ -270,10 +270,10 @@ class BCT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
         layout = layout.box()
         row = layout.row()
         row.label(text="Auto-Constraint")
-        row.prop(obj.bct, 'auto_constraint', text="")
+        row.prop(obj.act, 'auto_constraint', text="")
         row = layout.row()
         row.label(text="Ignore Scale")
-        row.prop(obj.bct, 'ignore_scale', text="")
+        row.prop(obj.act, 'ignore_scale', text="")
 
 
 ####
@@ -285,8 +285,8 @@ class BCT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
 #   when setting the new origin location.
 # * It adds the Bottom Center type (what everyone wants anyway).
 ####
-class BCT_OT_object_origin_set(bpy.types.Operator):
-    bl_idname = 'bct.origin_set'
+class ACT_OT_object_origin_set(bpy.types.Operator):
+    bl_idname = 'act.origin_set'
     bl_label = 'Improved set origin'
     bl_options = {"REGISTER", "UNDO"}
 
@@ -325,33 +325,33 @@ class BCT_OT_object_origin_set(bpy.types.Operator):
             matrix_world.translation = matrix_world @ origin
 
 
-class BCT_MT_object_origin_set(bpy.types.Menu):
+class ACT_MT_object_origin_set(bpy.types.Menu):
     bl_label = "Set Origin (Parent Only)"
-    bl_idname = "BCT_MT_object_origin_set"
+    bl_idname = "ACT_MT_object_origin_set"
 
     def draw(self, context):
         layout = self.layout
-        layout.operator(BCT_OT_object_origin_set.bl_idname, text='Geometry to Origin').type = 'GEOMETRY_ORIGIN'
-        layout.operator(BCT_OT_object_origin_set.bl_idname, text='Origin to Geometry').type = 'ORIGIN_GEOMETRY'
-        layout.operator(BCT_OT_object_origin_set.bl_idname, text='Origin to 3D Cursor').type = 'ORIGIN_CURSOR'
-        layout.operator(BCT_OT_object_origin_set.bl_idname,
+        layout.operator(ACT_OT_object_origin_set.bl_idname, text='Geometry to Origin').type = 'GEOMETRY_ORIGIN'
+        layout.operator(ACT_OT_object_origin_set.bl_idname, text='Origin to Geometry').type = 'ORIGIN_GEOMETRY'
+        layout.operator(ACT_OT_object_origin_set.bl_idname, text='Origin to 3D Cursor').type = 'ORIGIN_CURSOR'
+        layout.operator(ACT_OT_object_origin_set.bl_idname,
                         text='Origin to Center of Mass (Surface)').type = 'ORIGIN_CENTER_OF_MASS'
-        layout.operator(BCT_OT_object_origin_set.bl_idname,
+        layout.operator(ACT_OT_object_origin_set.bl_idname,
                         text='Origin to Center of Mass (Volume)').type = 'ORIGIN_CENTER_OF_VOLUME'
-        layout.operator(BCT_OT_object_origin_set.bl_idname, text='Origin to Bottom Center').type = 'ORIGIN_TO_0Z'
+        layout.operator(ACT_OT_object_origin_set.bl_idname, text='Origin to Bottom Center').type = 'ORIGIN_TO_0Z'
 
 
-def draw_bct_set_origin_menu(self, context):
-    self.layout.menu(BCT_MT_object_origin_set.bl_idname)
+def draw_act_set_origin_menu(self, context):
+    self.layout.menu(ACT_MT_object_origin_set.bl_idname)
     self.layout.separator()
 
 
 classes = [
-    BCT_BooleanChildOfConstraintProperty,
-    BCT_BooleanChildOfConstraintObjectProperties,
-    BCT_PT_BooleanConstraintToolsPanel,
-    BCT_OT_object_origin_set,
-    BCT_MT_object_origin_set,
+    ACT_BooleanChildOfConstraintProperty,
+    ACT_BooleanChildOfConstraintObjectProperties,
+    ACT_PT_BooleanConstraintToolsPanel,
+    ACT_OT_object_origin_set,
+    ACT_MT_object_origin_set,
 ]
 
 
@@ -362,25 +362,25 @@ def register():
     for c in classes:
         bpy.utils.register_class(c)
 
-    bpy.types.Object.bct = bpy.props.PointerProperty(
-        name="Boolean Constraint Tools Object Properties", type=BCT_BooleanChildOfConstraintObjectProperties)
+    bpy.types.Object.act = bpy.props.PointerProperty(
+        name="Auto Constraint Tools Object Properties", type=ACT_BooleanChildOfConstraintObjectProperties)
 
     bpy.app.handlers.depsgraph_update_post.append(on_scene_updated)
 
-    bpy.types.VIEW3D_MT_object_context_menu.prepend(draw_bct_set_origin_menu)
-    bpy.types.VIEW3D_MT_object.prepend(draw_bct_set_origin_menu)
+    bpy.types.VIEW3D_MT_object_context_menu.prepend(draw_act_set_origin_menu)
+    bpy.types.VIEW3D_MT_object.prepend(draw_act_set_origin_menu)
 
 
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
 
-    del bpy.types.Object.bct
+    del bpy.types.Object.act
 
     bpy.app.handlers.depsgraph_update_post.remove(on_scene_updated)
 
-    bpy.types.VIEW3D_MT_object_context_menu.remove(draw_bct_set_origin_menu)
-    bpy.types.VIEW3D_MT_object.remove(draw_bct_set_origin_menu)
+    bpy.types.VIEW3D_MT_object_context_menu.remove(draw_act_set_origin_menu)
+    bpy.types.VIEW3D_MT_object.remove(draw_act_set_origin_menu)
 
 
 if __name__ == "__main__":
