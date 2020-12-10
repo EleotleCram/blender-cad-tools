@@ -457,6 +457,9 @@ def on_scene_updated(scene, depsgraph):
     dprint("on_scene_updated")
 
     def update_outline_meshes():
+        # Make sure mesh_cache is up-to-date:
+        mesh_cache_refresh()
+
         obs_updated = set()
         obs_updated.update(flatten(
             [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
