@@ -18,17 +18,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from threading import Timer
-import numpy as np
-import time
-from bpy.app.handlers import persistent
-from mathutils import Vector, Matrix
-from bpy.props import FloatProperty, PointerProperty
-from bpy.utils import register_class, unregister_class
-from bpy.types import Panel, Operator, PropertyGroup, Scene
+import time  # pylint: disable=unused-import
+
 import bmesh
 import bpy
-
+import numpy as np
+from mathutils import Vector
 
 bl_info = {
     "name": "CAD Mesh Dimensions",
@@ -72,12 +67,15 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
+############ Generic Blender Utility Functions #############
+
+
 def vertices_hash(vertices):
     # start_time = time.time()
 
     if hasattr(vertices, 'foreach_get'):
         count = len(vertices)
-        verts = np.empty(count*3, dtype=np.float64)
+        verts = np.empty(count * 3, dtype=np.float64)
         vertices.foreach_get('co', verts)
     else:
         verts = np.array(flatten([
@@ -95,41 +93,6 @@ def vertices_hash(vertices):
     # insist on a signed value, and this function
     # does not care, as long as the value is consistent.
     return __hash - 0x7fffffff
-
-
-def get_current_time_millis():
-    return int(round(time.time() * 1000))
-
-
-def throttled(timeout):
-    def decorator_func(callback):
-        timer = None
-        millis_prev = 0
-
-        def throttled_func(*args):
-            nonlocal timer, millis_prev
-
-            def do_callback(*args):
-                nonlocal timer
-                timer = None
-                callback(*args)
-
-            millis_cur = get_current_time_millis()
-            if millis_cur - millis_prev > timeout:
-                millis_prev = millis_cur
-                do_callback(*args)
-            else:
-                if timer is not None:
-                    timer.cancel()
-
-                timer = Timer(timeout/1000, do_callback, args)
-                timer.start()
-
-        return throttled_func
-
-    return decorator_func
-
-############ Generic Blender Utility Functions #############
 
 
 def calc_bounds_verts(ob, selected_verts):
@@ -198,10 +161,6 @@ def edit_dimensions(new_x, new_y, new_z):
     y = safe_divide(new_y, bounds["y"])
     z = safe_divide(new_z, bounds["z"])
 
-    # We are going to let some bpy.ops do their thing,
-    # so the bmeshes_from_edit_mesh will become invalid
-    bmeshes_from_edit_mesh.clear()
-
     # Save the transform_pivot_point
     orig_transform_pivot_point = bpy.context.tool_settings.transform_pivot_point
     # Save the 3D cursor location
@@ -224,6 +183,17 @@ def edit_dimensions(new_x, new_y, new_z):
     # Restore the 3D cursor location
     bpy.context.scene.cursor.location = orig_cursor_location
 
+
+############ CAD Mesh Dimensions Blender Utility Functions #############
+
+
+CAD_MESH_DIMENSIONS_MAX_VERTS = 10000
+
+
+def cad_mesh_dimensions_is_enabled(ob):
+    return ob and ob.mode == 'EDIT' and len(ob.data.vertices) < CAD_MESH_DIMENSIONS_MAX_VERTS
+
+
 ############# Blender Event Handlers ##############
 
 
@@ -238,11 +208,6 @@ def on_edit_dimensions_prop_changed(self, context):
                         self.cad_mesh_dimensions.z)
 
 
-@persistent
-def on_undo_redo(self, context):
-    # Upon undo/redo the edit meshes become invalid.
-    bmeshes_from_edit_mesh.clear()
-
 ############# Blender Extension Classes ##############
 
 
@@ -255,7 +220,7 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object != None and context.object.mode == 'EDIT'
+        return cad_mesh_dimensions_is_enabled(context.object)
 
     def draw(self, context):
         layout = self.layout
@@ -285,7 +250,6 @@ classes = [
 
 
 hash_prev = 0
-bmeshes_from_edit_mesh = {}
 handle = None
 
 
@@ -303,18 +267,28 @@ def update_dimensions(ob, selected_verts):
     internal_update = False
 
 
-@throttled(100)
-def update_dimensions_if_changed(ob, bme):
+def update_dimensions_if_changed(ob_name):
     global hash_prev
 
-    selected_verts = [v for v in bme.verts if v.select]
+    # start_time = time.time()
 
-    hash_cur = vertices_hash(selected_verts)
+    if ob_name in bpy.data.objects:
+        ob = bpy.data.objects[ob_name]
+        me = ob.data
 
-    if hash_prev != hash_cur:
-        hash_prev = hash_cur
+        bme = bmesh.from_edit_mesh(me)
 
-        update_dimensions(ob, selected_verts)
+        selected_verts = [v for v in bme.verts if v.select]
+
+        hash_cur = vertices_hash(selected_verts)
+
+        if hash_prev != hash_cur:
+            hash_prev = hash_cur
+
+            update_dimensions(ob, selected_verts)
+
+    # elapsed_time = time.time() - start_time
+    # print("elapsed_time", elapsed_time * 1000)
 
 
 def spaceview3d_draw_handler():
@@ -322,21 +296,13 @@ def spaceview3d_draw_handler():
 
     context = bpy.context
     ob = context.active_object
-    meshes = set(o.data for o in ([ob] + context.selected_objects) if o != None and o.mode == 'EDIT')
-    if context.mode == 'EDIT_MESH':
-        for m in meshes:
-            if not m.name in bmeshes_from_edit_mesh:
-                bmeshes_from_edit_mesh[m.name] = bmesh.from_edit_mesh(m)
-    else:
-        bmeshes_from_edit_mesh.clear()
-        hash_prev = 0
-        return
 
-    me = ob.data
+    if cad_mesh_dimensions_is_enabled(ob):
+        if context.mode == 'EDIT_MESH':
+            update_dimensions_if_changed(ob.name)
+        else:
+            hash_prev = 0
 
-    if me.name in bmeshes_from_edit_mesh:
-        bme = bmeshes_from_edit_mesh[me.name]
-        update_dimensions_if_changed(ob, bme)
 
 ############# Register/Unregister Hooks ##############
 
@@ -372,9 +338,6 @@ def register():
         default='OBJECT_ORIGIN'
     )
 
-    bpy.app.handlers.undo_post.append(on_undo_redo)
-    bpy.app.handlers.redo_post.append(on_undo_redo)
-
     global handle
     handle = bpy.types.SpaceView3D.draw_handler_add(
         spaceview3d_draw_handler, (),
@@ -387,9 +350,6 @@ def unregister():
 
     del bpy.types.WindowManager.cad_mesh_dimensions
     del bpy.types.Object.cad_mesh_dimensions_anchor
-
-    bpy.app.handlers.undo_post.remove(on_undo_redo)
-    bpy.app.handlers.redo_post.remove(on_undo_redo)
 
     global handle
     bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
