@@ -220,6 +220,17 @@ def edit_dimensions(new_x, new_y, new_z):
     # Restore the 3D cursor location
     bpy.context.scene.cursor.location = orig_cursor_location
 
+
+############ CAD Mesh Dimensions Blender Utility Functions #############
+
+
+CAD_MESH_DIMENSIONS_MAX_VERTS = 10000
+
+
+def cad_mesh_dimensions_is_enabled(ob):
+    return ob and ob.mode == 'EDIT' and len(ob.data.vertices) < CAD_MESH_DIMENSIONS_MAX_VERTS
+
+
 ############# Blender Event Handlers ##############
 
 
@@ -246,7 +257,7 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object != None and context.object.mode == 'EDIT'
+        return cad_mesh_dimensions_is_enabled(context.object)
 
     def draw(self, context):
         layout = self.layout
@@ -324,10 +335,11 @@ def spaceview3d_draw_handler():
     context = bpy.context
     ob = context.active_object
 
-    if context.mode == 'EDIT_MESH':
-        update_dimensions_if_changed(ob.name)
-    else:
-        hash_prev = 0
+    if cad_mesh_dimensions_is_enabled(ob):
+        if context.mode == 'EDIT_MESH':
+            update_dimensions_if_changed(ob.name)
+        else:
+            hash_prev = 0
 
 
 ############# Register/Unregister Hooks ##############
