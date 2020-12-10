@@ -77,7 +77,7 @@ def vertices_hash(vertices):
 
     if hasattr(vertices, 'foreach_get'):
         count = len(vertices)
-        verts = np.empty(count*3, dtype=np.float64)
+        verts = np.empty(count * 3, dtype=np.float64)
         vertices.foreach_get('co', verts)
     else:
         verts = np.array(flatten([
@@ -122,7 +122,7 @@ def throttled(timeout):
                 if timer is not None:
                     timer.cancel()
 
-                timer = Timer(timeout/1000, do_callback, args)
+                timer = Timer(timeout / 1000, do_callback, args)
                 timer.start()
 
         return throttled_func
