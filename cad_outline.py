@@ -113,7 +113,7 @@ def vertices_hash(vertices):
     start_time = time.time()
 
     count = len(vertices)
-    verts = np.empty(count*3, dtype=np.float64)
+    verts = np.empty(count * 3, dtype=np.float64)
     vertices.foreach_get('co', verts)
 
     h = xxhash.xxh32(seed=20141025)
@@ -158,7 +158,7 @@ TOLERANCE_EXP = 10**TOLERANCE
 def face_angle_deg_get(face1, face2):
     dp = face1.normal.dot(face2.normal)
     # 2x faster than round and good enough for us:
-    dp = int(dp * TOLERANCE_EXP + 0.5)/TOLERANCE_EXP
+    dp = int(dp * TOLERANCE_EXP + 0.5) / TOLERANCE_EXP
     angle_deg = acos(dp) * 180 / pi
 
     return angle_deg
@@ -350,7 +350,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
 
             # Functions to determine if a face is one of the three cartesian planes:
             def component_len(face, x):
-                return reduce(lambda res, e: res + (1 if abs(e-x) < 0.0001 else 0), face.normal, 0)
+                return reduce(lambda res, e: res + (1 if abs(e - x) < 0.0001 else 0), face.normal, 0)
 
             def is_cart(face):
                 return component_len(face, 1) == 1 and component_len(face, 0) == 2
@@ -549,7 +549,7 @@ def on_scene_updated(scene, depsgraph):
 
 ############# Blender Extension Classes ##############
 
-#(identifier, name, description, icon, number)
+# (identifier, name, description, icon, number)
 CAD_OUTLINE_MODE_ENUM = [
     ('SHARP_CART', "Sharp+Cartesian",
      'Outline based on sharp+cartesian edges (Most accurate)'),
