@@ -18,17 +18,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from threading import Timer
-import numpy as np
-import time
-from bpy.app.handlers import persistent
-from mathutils import Vector, Matrix
-from bpy.props import FloatProperty, PointerProperty
-from bpy.utils import register_class, unregister_class
-from bpy.types import Panel, Operator, PropertyGroup, Scene
+import time  # pylint: disable=unused-import
+
 import bmesh
 import bpy
-
+import numpy as np
+from mathutils import Vector
 
 bl_info = {
     "name": "CAD Mesh Dimensions",
