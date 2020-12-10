@@ -488,16 +488,22 @@ def on_scene_updated(scene, depsgraph):
             else:
                 ob = bpy.data.objects[ob_name]
 
-            if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
-                ob_evaluated = ob.evaluated_get(depsgraph)
-                prev_hash = ob.cad_outline.evaluated_mesh_hash
-                new_hash = vertices_hash(ob_evaluated.data.vertices)
-                dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
+            if ob and ob.cad_outline.is_enabled:
+                if ob.mode != 'EDIT':
+                    ob_evaluated = ob.evaluated_get(depsgraph)
+                    prev_hash = ob.cad_outline.evaluated_mesh_hash
+                    new_hash = vertices_hash(ob_evaluated.data.vertices)
+                    dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
 
-                if new_hash != prev_hash:
-                    ob.cad_outline.evaluated_mesh_hash = new_hash
-                    dprint("           `--> Mesh changed!")
-                    cad_outline_mesh_update(ob, ob_evaluated)
+                    if new_hash != prev_hash:
+                        ob.cad_outline.evaluated_mesh_hash = new_hash
+                        dprint("           `--> Mesh changed!")
+                        cad_outline_mesh_update(ob, ob_evaluated)
+                else:  # ob.mode == 'EDIT' ==> Ensure a fresh outline after leaving EDIT mode:
+                    ob.cad_outline.evaluated_mesh_hash = 0
+                    ob_outline = cad_outline_object_get(ob)
+                    if ob_outline:
+                        mesh_cache_save_delete(ob_outline.cad_outline.evaluated_mesh_hash)
 
     def sync_visibility():
         for ob in bpy.data.objects:
