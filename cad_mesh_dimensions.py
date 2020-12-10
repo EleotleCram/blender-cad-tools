@@ -198,10 +198,6 @@ def edit_dimensions(new_x, new_y, new_z):
     y = safe_divide(new_y, bounds["y"])
     z = safe_divide(new_z, bounds["z"])
 
-    # We are going to let some bpy.ops do their thing,
-    # so the bmeshes_from_edit_mesh will become invalid
-    bmeshes_from_edit_mesh.clear()
-
     # Save the transform_pivot_point
     orig_transform_pivot_point = bpy.context.tool_settings.transform_pivot_point
     # Save the 3D cursor location
@@ -237,11 +233,6 @@ def on_edit_dimensions_prop_changed(self, context):
                         self.cad_mesh_dimensions.y,
                         self.cad_mesh_dimensions.z)
 
-
-@persistent
-def on_undo_redo(self, context):
-    # Upon undo/redo the edit meshes become invalid.
-    bmeshes_from_edit_mesh.clear()
 
 ############# Blender Extension Classes ##############
 
@@ -285,7 +276,6 @@ classes = [
 
 
 hash_prev = 0
-bmeshes_from_edit_mesh = {}
 handle = None
 
 
@@ -304,17 +294,28 @@ def update_dimensions(ob, selected_verts):
 
 
 @throttled(100)
-def update_dimensions_if_changed(ob, bme):
+def update_dimensions_if_changed(ob_name):
     global hash_prev
 
-    selected_verts = [v for v in bme.verts if v.select]
+    start_time = time.time()
 
-    hash_cur = vertices_hash(selected_verts)
+    if ob_name in bpy.data.objects:
+        ob = bpy.data.objects[ob_name]
+        me = ob.data
 
-    if hash_prev != hash_cur:
-        hash_prev = hash_cur
+        bme = bmesh.from_edit_mesh(me)
 
-        update_dimensions(ob, selected_verts)
+        selected_verts = [v for v in bme.verts if v.select]
+
+        hash_cur = vertices_hash(selected_verts)
+
+        if hash_prev != hash_cur:
+            hash_prev = hash_cur
+
+            update_dimensions(ob, selected_verts)
+
+    elapsed_time = time.time() - start_time
+    print("elapsed_time", elapsed_time * 1000)
 
 
 def spaceview3d_draw_handler():
@@ -322,21 +323,12 @@ def spaceview3d_draw_handler():
 
     context = bpy.context
     ob = context.active_object
-    meshes = set(o.data for o in ([ob] + context.selected_objects) if o != None and o.mode == 'EDIT')
+
     if context.mode == 'EDIT_MESH':
-        for m in meshes:
-            if not m.name in bmeshes_from_edit_mesh:
-                bmeshes_from_edit_mesh[m.name] = bmesh.from_edit_mesh(m)
+        update_dimensions_if_changed(ob.name)
     else:
-        bmeshes_from_edit_mesh.clear()
         hash_prev = 0
-        return
 
-    me = ob.data
-
-    if me.name in bmeshes_from_edit_mesh:
-        bme = bmeshes_from_edit_mesh[me.name]
-        update_dimensions_if_changed(ob, bme)
 
 ############# Register/Unregister Hooks ##############
 
@@ -372,9 +364,6 @@ def register():
         default='OBJECT_ORIGIN'
     )
 
-    bpy.app.handlers.undo_post.append(on_undo_redo)
-    bpy.app.handlers.redo_post.append(on_undo_redo)
-
     global handle
     handle = bpy.types.SpaceView3D.draw_handler_add(
         spaceview3d_draw_handler, (),
@@ -387,9 +376,6 @@ def unregister():
 
     del bpy.types.WindowManager.cad_mesh_dimensions
     del bpy.types.Object.cad_mesh_dimensions_anchor
-
-    bpy.app.handlers.undo_post.remove(on_undo_redo)
-    bpy.app.handlers.redo_post.remove(on_undo_redo)
 
     global handle
     bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
