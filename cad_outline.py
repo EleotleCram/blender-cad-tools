@@ -184,7 +184,8 @@ def mesh_cache_refresh():
         mesh_cache.clear()
 
         for ob_outline in cad_outline_collection_ensure().objects:
-            if len(ob_outline.data.vertices) > 0:
+            ob_mode = cad_outline_object_mode_get(ob_outline)
+            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0:
                 dprint("mesh_cache update:  mesh_cache[%d] = " %
                        ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
                 mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash] = ob_outline.data.name
@@ -251,6 +252,18 @@ def cad_outline_object_hide_set(ob, should_be_hidden):
             ob_outline.hide_set(should_be_hidden)
         ob_outline.hide_viewport = should_be_hidden
 
+
+def cad_outline_object_mode_get(ob_or_ob_outline):
+    ob = ob_or_ob_outline
+    if ob.name.endswith(".ol"):
+        ob_outline = ob_or_ob_outline
+        ob_name_start = ob_outline.name[:-3]
+        ob = next(
+            (ob for ob in bpy.data.objects if ob.name.startswith(ob_name_start) and not ob.name.endswith(".ol")),
+            None
+        )
+
+    return ob.mode if ob is not None else None
 
 def cad_outline_object_name_get(ob):
     return "%s.ol" % ob.name[0:58]
