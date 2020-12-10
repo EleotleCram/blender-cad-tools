@@ -113,7 +113,7 @@ def vertices_hash(vertices):
     start_time = time.time()
 
     count = len(vertices)
-    verts = np.empty(count*3, dtype=np.float64)
+    verts = np.empty(count * 3, dtype=np.float64)
     vertices.foreach_get('co', verts)
 
     h = xxhash.xxh32(seed=20141025)
@@ -127,6 +127,16 @@ def vertices_hash(vertices):
     # insist on a signed value, and this function
     # does not care, as long as the value is consistent.
     return __hash - 0x7fffffff
+
+
+def collection_objects_get(col):
+    obs = set()
+    obs.update(col.objects)
+
+    for c in col.children:
+        obs.update(collection_objects_get(c))
+
+    return obs
 
 
 def childof_constraints_get(ob):
@@ -158,7 +168,7 @@ TOLERANCE_EXP = 10**TOLERANCE
 def face_angle_deg_get(face1, face2):
     dp = face1.normal.dot(face2.normal)
     # 2x faster than round and good enough for us:
-    dp = int(dp * TOLERANCE_EXP + 0.5)/TOLERANCE_EXP
+    dp = int(dp * TOLERANCE_EXP + 0.5) / TOLERANCE_EXP
     angle_deg = acos(dp) * 180 / pi
 
     return angle_deg
@@ -184,7 +194,8 @@ def mesh_cache_refresh():
         mesh_cache.clear()
 
         for ob_outline in cad_outline_collection_ensure().objects:
-            if len(ob_outline.data.vertices) > 0:
+            ob_mode = cad_outline_object_mode_get(ob_outline)
+            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0:
                 dprint("mesh_cache update:  mesh_cache[%d] = " %
                        ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
                 mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash] = ob_outline.data.name
@@ -251,6 +262,18 @@ def cad_outline_object_hide_set(ob, should_be_hidden):
             ob_outline.hide_set(should_be_hidden)
         ob_outline.hide_viewport = should_be_hidden
 
+
+def cad_outline_object_mode_get(ob_or_ob_outline):
+    ob = ob_or_ob_outline
+    if ob.name.endswith(".ol"):
+        ob_outline = ob_or_ob_outline
+        ob_name_start = ob_outline.name[:-3]
+        ob = next(
+            (ob for ob in bpy.data.objects if ob.name.startswith(ob_name_start) and not ob.name.endswith(".ol")),
+            None
+        )
+
+    return ob.mode if ob is not None else None
 
 def cad_outline_object_name_get(ob):
     return "%s.ol" % ob.name[0:58]
@@ -350,7 +373,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
 
             # Functions to determine if a face is one of the three cartesian planes:
             def component_len(face, x):
-                return reduce(lambda res, e: res + (1 if abs(e-x) < 0.0001 else 0), face.normal, 0)
+                return reduce(lambda res, e: res + (1 if abs(e - x) < 0.0001 else 0), face.normal, 0)
 
             def is_cart(face):
                 return component_len(face, 1) == 1 and component_len(face, 0) == 2
@@ -435,18 +458,6 @@ def on_load_handler(_):
     global mesh_cache_out_of_date
     mesh_cache_out_of_date = True
 
-# @TODO move to top of file
-
-
-def collection_objects_get(col):
-    obs = set()
-    obs.update(col.objects)
-
-    for c in col.children:
-        obs.update(collection_objects_get(c))
-
-    return obs
-
 
 @persistent
 def on_scene_updated(scene, depsgraph):
@@ -457,6 +468,9 @@ def on_scene_updated(scene, depsgraph):
     dprint("on_scene_updated")
 
     def update_outline_meshes():
+        # Make sure mesh_cache is up-to-date:
+        mesh_cache_refresh()
+
         obs_updated = set()
         obs_updated.update(flatten(
             [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
@@ -472,16 +486,22 @@ def on_scene_updated(scene, depsgraph):
             else:
                 ob = bpy.data.objects[ob_name]
 
-            if ob and ob.cad_outline.is_enabled and ob.mode != 'EDIT':
-                ob_evaluated = ob.evaluated_get(depsgraph)
-                prev_hash = ob.cad_outline.evaluated_mesh_hash
-                new_hash = vertices_hash(ob_evaluated.data.vertices)
-                dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
+            if ob and ob.cad_outline.is_enabled:
+                if ob.mode != 'EDIT':
+                    ob_evaluated = ob.evaluated_get(depsgraph)
+                    prev_hash = ob.cad_outline.evaluated_mesh_hash
+                    new_hash = vertices_hash(ob_evaluated.data.vertices)
+                    dprint("  `--> new_hash: ", new_hash, "prev_hash: ", prev_hash)
 
-                if new_hash != prev_hash:
-                    ob.cad_outline.evaluated_mesh_hash = new_hash
-                    dprint("           `--> Mesh changed!")
-                    cad_outline_mesh_update(ob, ob_evaluated)
+                    if new_hash != prev_hash:
+                        ob.cad_outline.evaluated_mesh_hash = new_hash
+                        dprint("           `--> Mesh changed!")
+                        cad_outline_mesh_update(ob, ob_evaluated)
+                else:  # ob.mode == 'EDIT' ==> Ensure a fresh outline after leaving EDIT mode:
+                    ob.cad_outline.evaluated_mesh_hash = 0
+                    ob_outline = cad_outline_object_get(ob)
+                    if ob_outline:
+                        mesh_cache_save_delete(ob_outline.cad_outline.evaluated_mesh_hash)
 
     def sync_visibility():
         for ob in bpy.data.objects:
@@ -549,7 +569,7 @@ def on_scene_updated(scene, depsgraph):
 
 ############# Blender Extension Classes ##############
 
-#(identifier, name, description, icon, number)
+# (identifier, name, description, icon, number)
 CAD_OUTLINE_MODE_ENUM = [
     ('SHARP_CART', "Sharp+Cartesian",
      'Outline based on sharp+cartesian edges (Most accurate)'),
