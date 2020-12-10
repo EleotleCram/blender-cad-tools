@@ -72,38 +72,6 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
-def get_current_time_millis():
-    return int(round(time.time() * 1000))
-
-
-def throttled(timeout):
-    def decorator_func(callback):
-        timer = None
-        millis_prev = 0
-
-        def throttled_func(*args):
-            nonlocal timer, millis_prev
-
-            def do_callback(*args):
-                nonlocal timer
-                timer = None
-                callback(*args)
-
-            millis_cur = get_current_time_millis()
-            if millis_cur - millis_prev > timeout:
-                millis_prev = millis_cur
-                do_callback(*args)
-            else:
-                if timer is not None:
-                    timer.cancel()
-
-                timer = Timer(timeout / 1000, do_callback, args)
-                timer.start()
-
-        return throttled_func
-
-    return decorator_func
-
 ############ Generic Blender Utility Functions #############
 
 
@@ -304,7 +272,6 @@ def update_dimensions(ob, selected_verts):
     internal_update = False
 
 
-@throttled(100)
 def update_dimensions_if_changed(ob_name):
     global hash_prev
 
