@@ -72,31 +72,6 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
-def vertices_hash(vertices):
-    # start_time = time.time()
-
-    if hasattr(vertices, 'foreach_get'):
-        count = len(vertices)
-        verts = np.empty(count * 3, dtype=np.float64)
-        vertices.foreach_get('co', verts)
-    else:
-        verts = np.array(flatten([
-            (v.co.x, v.co.y, v.co.z) for v in vertices
-        ]), dtype=np.float64)
-
-    h = xxhash.xxh32(seed=20141025)
-    h.update(verts)
-    __hash = h.intdigest()
-
-    # elapsed_time = time.time() - start_time
-    # print("elapsed_time", elapsed_time * 1000)
-
-    # The - 0x7fffffff is because Blender appears to
-    # insist on a signed value, and this function
-    # does not care, as long as the value is consistent.
-    return __hash - 0x7fffffff
-
-
 def get_current_time_millis():
     return int(round(time.time() * 1000))
 
@@ -130,6 +105,31 @@ def throttled(timeout):
     return decorator_func
 
 ############ Generic Blender Utility Functions #############
+
+
+def vertices_hash(vertices):
+    # start_time = time.time()
+
+    if hasattr(vertices, 'foreach_get'):
+        count = len(vertices)
+        verts = np.empty(count * 3, dtype=np.float64)
+        vertices.foreach_get('co', verts)
+    else:
+        verts = np.array(flatten([
+            (v.co.x, v.co.y, v.co.z) for v in vertices
+        ]), dtype=np.float64)
+
+    h = xxhash.xxh32(seed=20141025)
+    h.update(verts)
+    __hash = h.intdigest()
+
+    # elapsed_time = time.time() - start_time
+    # print("elapsed_time", elapsed_time * 1000)
+
+    # The - 0x7fffffff is because Blender appears to
+    # insist on a signed value, and this function
+    # does not care, as long as the value is consistent.
+    return __hash - 0x7fffffff
 
 
 def calc_bounds_verts(ob, selected_verts):
