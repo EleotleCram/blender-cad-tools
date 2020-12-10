@@ -129,6 +129,16 @@ def vertices_hash(vertices):
     return __hash - 0x7fffffff
 
 
+def collection_objects_get(col):
+    obs = set()
+    obs.update(col.objects)
+
+    for c in col.children:
+        obs.update(collection_objects_get(c))
+
+    return obs
+
+
 def childof_constraints_get(ob):
     return [c for c in ob.constraints if c.type == 'CHILD_OF' and c.target != None]
 
@@ -447,18 +457,6 @@ on_cad_outline_debug_prop_updated = on_anything_that_triggers_outline_mesh_updat
 def on_load_handler(_):
     global mesh_cache_out_of_date
     mesh_cache_out_of_date = True
-
-# @TODO move to top of file
-
-
-def collection_objects_get(col):
-    obs = set()
-    obs.update(col.objects)
-
-    for c in col.children:
-        obs.update(collection_objects_get(c))
-
-    return obs
 
 
 @persistent
