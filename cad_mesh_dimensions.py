@@ -308,7 +308,7 @@ def update_dimensions(ob, selected_verts):
 def update_dimensions_if_changed(ob_name):
     global hash_prev
 
-    start_time = time.time()
+    # start_time = time.time()
 
     if ob_name in bpy.data.objects:
         ob = bpy.data.objects[ob_name]
@@ -325,8 +325,8 @@ def update_dimensions_if_changed(ob_name):
 
             update_dimensions(ob, selected_verts)
 
-    elapsed_time = time.time() - start_time
-    print("elapsed_time", elapsed_time * 1000)
+    # elapsed_time = time.time() - start_time
+    # print("elapsed_time", elapsed_time * 1000)
 
 
 def spaceview3d_draw_handler():
