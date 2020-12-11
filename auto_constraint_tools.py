@@ -229,8 +229,8 @@ class ACT_BooleanChildOfConstraintObjectProperties(bpy.types.PropertyGroup):
 
 
 class ACT_PT_BooleanConstraintToolsPanel(bpy.types.Panel):
-    """Creates the Boolean Contraint Tools Panel in the Object properties window"""
-    bl_label = "Boolean Constraint Tools"
+    """Creates the Auto Contraint Tools Panel in the Object properties window"""
+    bl_label = "Auto Constraint Tools"
     bl_idname = "OBJECT_PT_ACT_CONSTRAINT"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
