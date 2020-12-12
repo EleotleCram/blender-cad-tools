@@ -30,7 +30,7 @@ Now on to the actual addons...
 ![CAD Outline Animation](docs/images/cad_outline_animation.gif)
 <sup>[Click image to enlarge]</sup>
 
-The [CAD Outline](addons/cad_outline/) addon adds a CAD outline to objects¹ drawn in the 3D viewport.
+The [CAD Outline](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_outline) addon adds a CAD outline to objects¹ drawn in the 3D viewport.
 
 <sup>¹ Objects for which it has been enabled. (See animation.)</sup>
 
