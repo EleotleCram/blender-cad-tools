@@ -257,10 +257,11 @@ def cad_outline_collection_ensure(col_parent=None):
 
 def cad_outline_object_hide_set(ob, should_be_hidden):
     if ob.cad_outline.is_enabled:
-        ob_outline = cad_outline_object_ensure(ob)
-        if not ob.cad_outline.debug:
-            ob_outline.hide_set(should_be_hidden)
-        ob_outline.hide_viewport = should_be_hidden
+        ob_outline = cad_outline_object_get(ob)
+        if ob_outline is not None:
+            if not ob.cad_outline.debug:
+                ob_outline.hide_set(should_be_hidden)
+            ob_outline.hide_viewport = should_be_hidden
 
 
 def cad_outline_object_mode_get(ob_or_ob_outline):
