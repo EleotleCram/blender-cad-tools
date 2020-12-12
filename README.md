@@ -30,49 +30,67 @@ Now on to the actual addons...
 ![CAD Outline Animation](docs/images/cad_outline_animation.gif)
 <sup>[Click image to enlarge]</sup>
 
-The [CAD Outline](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_outline) addon adds a CAD outline to objects¹ drawn in the 3D viewport.
+The [CAD Outline](#cad-outline) addon adds a CAD outline to objects¹ drawn in the 3D viewport.
 
 <sup>¹ Objects for which it has been enabled. (See animation.)</sup>
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download CAD Outline](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_outline) (Control+Click)</sup>
 
 ### Toggle Hide
 
 ![Toggle Hide Animation](docs/images/toggle_hide_animation.gif)
 <sup>[Click image to enlarge]</sup>
 
-The [Toggle Hide](addons/obref_toggle_hide/) addon allows to quickly hide or unhide all (Boolean) objects referenced in the modifiers. (So you can change the location/size of bore holes, cutouts, or otherwise modify those object/meshes etc.)
+The [Toggle Hide](#toggle-hide) addon allows to quickly hide or unhide all (Boolean) objects referenced in the modifiers. (So you can change the location/size of bore holes, cutouts, or otherwise modify those object/meshes etc.)
 
 I like to think of this addon as getting an extra 'edit mode'. Because of it, putting precise names on your Boolean objects is no longer necessary, as you can track them visually from the main CAD part object.
 
 This addon combines nicely with the BoxCutter and HardOps addons as well. (As these put the cutter objects under a generic name in a 'Cutters' collection. This addon will then allow for quick access to those boolean cutter objects.)
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download Toggle Hide](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/obref_toggle_hide) (Control+Click)</sup>
 
 ### CAD Mesh Dimensions
 
 <a href="https://youtu.be/EAITv0b2HdA">![CAD Mesh Dimensions Video Preview](docs/images/cad_mesh_dimensions_video_preview.png)</a>
 <sup>[Click image to watch the video on YouTube]</sup>
 
-The [CAD Mesh Dimensions](addons/cad_mesh_dimensions/) addon allows to quickly dimension a part directly in the 3D viewport. No sketches required. The video explains it all.
+The [CAD Mesh Dimensions](#cad-mesh-dimensions) addon allows to quickly dimension a part directly in the 3D viewport. No sketches required. The video explains it all.
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download CAD Mesh Dimensions](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_mesh_dimensions) (Control+Click)</sup>
 
 ### Auto Constraint Tools
 
 ![Auto Constraint Tools Animation](docs/images/auto_constraint_tools_animation.gif)
 <sup>[Click image to enlarge]</sup>
 
-The [Auto Constraint Tools](addons/auto_constraint_tools/) addon automatically manages (child-of) constraints of objects referenced in the modifiers. The constaint child object can remain separate in the outliner and can even be part of a different collection.
+The [Auto Constraint Tools](#auto-constraint-tools) addon automatically manages (child-of) constraints of objects referenced in the modifiers. The constaint child object can remain separate in the outliner and can even be part of a different collection.
 
 This addon combines nicely with the BoxCutter and HardOps addons as well. (As these put the cutter objects under a generic name in a 'Cutters' collection. This addon will then automatically constraint those boolean cutter objects, so that, when you move the main CAD Part object, the modifier objects will move along.) 
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download Auto Constraint Tools](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/auto_constraint_tools) (Control+Click)</sup>
 
 ### Isolate Collections
 
 ![Isolate Collections Animation](docs/images/isolate_collections_animation.gif)
 <sup>[Click image to enlarge]</sup>
 
-The [Isolate Collections](addons/isolate_collections/) addon allows you to use keys 1-9 to quickly isolate specific collections in the 3D Viewport. Press the key again to exit.
+The [Isolate Collections](#isolate-collections) addon allows you to use keys 1-9 to quickly isolate specific collections in the 3D Viewport. Press the key again to exit.
 
 This addon works especially well, when assemblies get bigger and bigger. Not only is it nice to quickly focus on a particular sub-assembly, it also lowers the required hardware to comfortably navigate these assemblies in Blender.
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download Isolate Collections](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/isolate_collections) (Control+Click)</sup>
 
 ### CAD Fasteners
 
 ![CAD Fasteners Screenshot](docs/images/cad_fasteners.png)
 <sup>[Click image to enlarge]</sup>
 
-The [CAD Fasteners](addons/cad_fasteners/) addon is  little purpose-built asset manager for fasteners (metric only, at the moment). Using accurate dimensions as specified in the various ISO and DIN standard documents, it makes adding fasteners to your assembly a breeze. Need a slightly longer bolt? Or a different drive type? That's easily changed as well. To top it off, the addon makes sure that meshes are reused where possible, to keep your blend files small.
+The [CAD Fasteners](#cad-fasteners) addon is  little purpose-built asset manager for fasteners (metric only, at the moment). Using accurate dimensions as specified in the various ISO and DIN standard documents, it makes adding fasteners to your assembly a breeze. Need a slightly longer bolt? Or a different drive type? That's easily changed as well. To top it off, the addon makes sure that meshes are reused where possible, to keep your blend files small.
+
+&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
+<sup>[Download CAD Fasteners](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_fasteners) (Control+Click)</sup>
