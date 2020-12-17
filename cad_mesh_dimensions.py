@@ -176,12 +176,12 @@ def edit_dimensions(new_x, new_y, new_z):
 
     wm = bpy.context.window_manager
 
-    if ob.cad_mesh_dimensions_anchor in ['CURSOR', 'MEDIAN_POINT', 'ACTIVE_ELEMENT']:
-        bpy.context.tool_settings.transform_pivot_point = ob.cad_mesh_dimensions_anchor
-    elif ob.cad_mesh_dimensions_anchor == 'OBJECT_ORIGIN':
+    if ob.cad_mesh_dimensions.anchor in ['CURSOR', 'MEDIAN_POINT', 'ACTIVE_ELEMENT']:
+        bpy.context.tool_settings.transform_pivot_point = ob.cad_mesh_dimensions.anchor
+    elif ob.cad_mesh_dimensions.anchor == 'OBJECT_ORIGIN':
         bpy.context.scene.cursor.location = ob.location.copy()
         bpy.context.tool_settings.transform_pivot_point = 'CURSOR'
-    elif ob.cad_mesh_dimensions_anchor == 'TOOL_SETTINGS':
+    elif ob.cad_mesh_dimensions.anchor == 'TOOL_SETTINGS':
         pass
 
     bpy.ops.transform.resize(value=(x, y, z))
@@ -219,6 +219,26 @@ def on_edit_dimensions_prop_changed(self, context):
 ############# Blender Extension Classes ##############
 
 
+#(identifier, name, description, icon, number)
+CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM = [
+    ('CURSOR', "3D Cursor", 'Transform from the 3D cursor', 'PIVOT_CURSOR', 0),
+    ('MEDIAN_POINT', 'Median Point', 'Transform from the median point of the selected geometry', 'PIVOT_MEDIAN', 1),
+    ('ACTIVE_ELEMENT', 'Active Element', 'Transform from the active element', 'PIVOT_ACTIVE', 2),
+    ('OBJECT_ORIGIN', 'Object Origin', 'Transform from the object\'s origin', 'OBJECT_ORIGIN', 3),
+    ('TOOL_SETTINGS', 'Blender Tool Settings',
+        'Transform from whatever is currently configured as the Transform Pivot Point in the Tool Settings', 'BLENDER', 4)
+]
+
+
+class CAD_DIM_ObjectProperties(bpy.types.PropertyGroup):
+    anchor: bpy.props.EnumProperty(
+        name="Transform Anchor Point",
+        description="Anchor Point for CAD Mesh Dimensions Transformations",
+        items=CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM,
+        default='OBJECT_ORIGIN'
+    )
+
+
 class CAD_DIM_PT_MeshTools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -240,7 +260,7 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
         box.prop(wm, 'cad_mesh_dimensions')
         row = box.row()
         row.label(text="Transform Anchor Point:")
-        row.prop(ob, 'cad_mesh_dimensions_anchor', icon_only=True)
+        row.prop(ob.cad_mesh_dimensions, 'anchor', icon_only=True)
 
 
 class CAD_DIM_EditDimensionProperties(bpy.types.PropertyGroup):
@@ -250,6 +270,7 @@ class CAD_DIM_EditDimensionProperties(bpy.types.PropertyGroup):
 
 
 classes = [
+    CAD_DIM_ObjectProperties,
     CAD_DIM_EditDimensionProperties,
     CAD_DIM_PT_MeshTools,
 ]
@@ -329,22 +350,8 @@ def register():
         update=on_edit_dimensions_prop_changed
     )
 
-    #(identifier, name, description, icon, number)
-    transform_anchor_point_enum = [
-        ('CURSOR', "3D Cursor", 'Transform from the 3D cursor', 'PIVOT_CURSOR', 0),
-        ('MEDIAN_POINT', 'Median Point', 'Transform from the median point of the selected geometry', 'PIVOT_MEDIAN', 1),
-        ('ACTIVE_ELEMENT', 'Active Element', 'Transform from the active element', 'PIVOT_ACTIVE', 2),
-        ('OBJECT_ORIGIN', 'Object Origin', 'Transform from the object\'s origin', 'OBJECT_ORIGIN', 3),
-        ('TOOL_SETTINGS', 'Blender Tool Settings',
-         'Transform from whatever is currently configured as the Transform Pivot Point in the Tool Settings', 'BLENDER', 4)
-    ]
-
-    bpy.types.Object.cad_mesh_dimensions_anchor = bpy.props.EnumProperty(
-        name="Transform Anchor Point",
-        description="Anchor Point for Edit Dimension Transformations",
-        items=transform_anchor_point_enum,
-        default='OBJECT_ORIGIN'
-    )
+    bpy.types.Object.cad_mesh_dimensions = bpy.props.PointerProperty(
+        name="CAD Mesh Dimensions Object Properties", type=CAD_DIM_ObjectProperties)
 
     global handle
     handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -357,7 +364,7 @@ def unregister():
         bpy.utils.unregister_class(c)
 
     del bpy.types.WindowManager.cad_mesh_dimensions
-    del bpy.types.Object.cad_mesh_dimensions_anchor
+    del bpy.types.Object.cad_mesh_dimensions
 
     global handle
     bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
