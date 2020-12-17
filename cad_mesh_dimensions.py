@@ -174,8 +174,6 @@ def edit_dimensions(new_x, new_y, new_z):
     # Save the 3D cursor location
     orig_cursor_location = bpy.context.scene.cursor.location.copy()
 
-    wm = bpy.context.window_manager
-
     if ob.cad_mesh_dimensions.anchor in ['CURSOR', 'MEDIAN_POINT', 'ACTIVE_ELEMENT']:
         bpy.context.tool_settings.transform_pivot_point = ob.cad_mesh_dimensions.anchor
     elif ob.cad_mesh_dimensions.anchor == 'OBJECT_ORIGIN':
