@@ -14,9 +14,9 @@ all: $(ADDONS) $(ADDONS_UPDATE)
 	@echo "All done."
 
 addons/%:
-	git subtree add -P $@ ../$@ master
+	git subtree add -P $@ ../$@ main
 
 addons/%.update: addons/%
-	GIT_EDITOR=/bin/cat git subtree pull  -P $< ../$< master
+	GIT_EDITOR=/bin/cat git subtree pull  -P $< ../$< main
 
 .PHONY: addons/%.update
