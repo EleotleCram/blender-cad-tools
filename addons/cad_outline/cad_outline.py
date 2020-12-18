@@ -18,6 +18,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import sys
+import site
+
 import struct
 import time
 import numpy as np
@@ -44,6 +47,8 @@ bl_info = {
 
 ########### Automatic PIP Dependency Installation ###########
 
+sys.path.append(site.getusersitepackages())
+
 try:
     import xxhash
 except:
@@ -51,12 +56,15 @@ except:
 
     pybin = bpy.app.binary_path_python
 
-    # upgrade pip
-    subprocess.call([pybin, "-m", "ensurepip"])
-    subprocess.call([pybin, "-m", "pip", "install", "--upgrade", "pip"])
+    try:
+        # upgrade pip
+        subprocess.call([pybin, "-m", "ensurepip"])
+        subprocess.call([pybin, "-m", "pip", "install", "--upgrade", "pip"])
+    except:
+        pass
 
     # install required packages
-    subprocess.call([pybin, "-m", "pip", "install", "xxhash"])
+    subprocess.call([pybin, "-m", "pip", "install", "--user", "xxhash"])
 
     import xxhash
 
