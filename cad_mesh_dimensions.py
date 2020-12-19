@@ -75,6 +75,15 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
+TOLERANCE = 4
+TOLERANCE_EXP = 10**TOLERANCE
+
+
+def fast_truncate(x):
+    # 2x faster than round and good enough for us:
+    return int(x * TOLERANCE_EXP + 0.5) / TOLERANCE_EXP
+
+
 ############ Generic Blender Utility Functions / Classes #############
 
 
@@ -273,9 +282,9 @@ def update_dimensions(ob, bme, selected_verts):
     internal_update = True
     if transform_orientation_get(ob) == 'NORMAL':
         lwh_mapping_ensure(bme, bounds)
-        wm.cad_mesh_dimensions.x = bounds[lwh_xyz_mapping[WIDTH]]
-        wm.cad_mesh_dimensions.y = bounds[lwh_xyz_mapping[LENGTH]]
-        wm.cad_mesh_dimensions.z = bounds[lwh_xyz_mapping[HEIGHT]]
+        wm.cad_mesh_dimensions.x = fast_truncate(bounds[lwh_xyz_mapping[WIDTH]])
+        wm.cad_mesh_dimensions.y = fast_truncate(bounds[lwh_xyz_mapping[LENGTH]])
+        wm.cad_mesh_dimensions.z = fast_truncate(bounds[lwh_xyz_mapping[HEIGHT]])
     else:
         wm.cad_mesh_dimensions.x = bounds['x']
         wm.cad_mesh_dimensions.y = bounds['y']
