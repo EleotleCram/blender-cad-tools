@@ -286,9 +286,9 @@ def update_dimensions(ob, bme, selected_verts):
         wm.cad_mesh_dimensions.y = fast_truncate(bounds[lwh_xyz_mapping[LENGTH]])
         wm.cad_mesh_dimensions.z = fast_truncate(bounds[lwh_xyz_mapping[HEIGHT]])
     else:
-        wm.cad_mesh_dimensions.x = bounds['x']
-        wm.cad_mesh_dimensions.y = bounds['y']
-        wm.cad_mesh_dimensions.z = bounds['z']
+        wm.cad_mesh_dimensions.x = fast_truncate(bounds['x'])
+        wm.cad_mesh_dimensions.y = fast_truncate(bounds['y'])
+        wm.cad_mesh_dimensions.z = fast_truncate(bounds['z'])
     internal_update = False
 
 
