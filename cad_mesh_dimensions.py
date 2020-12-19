@@ -277,7 +277,6 @@ classes = [
 
 
 hash_prev = 0
-handle = None
 
 
 def update_dimensions(ob, selected_verts):
@@ -332,6 +331,9 @@ def spaceview3d_draw_handler():
 
 
 ############# Register/Unregister Hooks ##############
+
+
+handle = None
 
 
 def register():
