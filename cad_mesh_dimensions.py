@@ -75,7 +75,29 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
-############ Generic Blender Utility Functions #############
+############ Generic Blender Utility Functions / Classes #############
+
+
+class SelectedElementsRep:
+    """Representation of the selected elements in the bmesh
+       without actually keeping a (potentially stale
+       reference to a python wrapped C object)"""
+
+    def __init__(self, bme):
+        self.len = len(bme.select_history)
+        self.mode = frozenset(bme.select_mode)
+        active = bme.select_history.active
+        self.active_element_type = active.__class__ if active else None
+        self.active_element_index = active.index if active else None
+
+    def __hash__(self):
+        return hash((self.len, self.mode, self.active_element_type, self.active_element_index))
+
+    def __eq__(self, other):
+        return (
+            other and (self.len, self.mode, self.active_element_type, self.active_element_index) ==
+            (other.len, other.mode, other.active_element_type, other.active_element_index)
+        )
 
 
 def vertices_hash(vertices):
@@ -103,9 +125,8 @@ def vertices_hash(vertices):
     return __hash - 0x7fffffff
 
 
-def calc_bounds_verts(ob, selected_verts):
-    matrix_world = ob.matrix_world
-    v_coords = list(map(lambda v: Vector(matrix_world @ v.co), selected_verts))
+def calc_bounds_verts(selected_verts, matrix):
+    v_coords = list(map(lambda v: Vector(matrix @ v.co), selected_verts))
 
     # @TODO What to do with this?
     # bme.verts.ensure_lookup_table()
@@ -138,10 +159,10 @@ def calc_bounds_verts(ob, selected_verts):
     return bounds
 
 
-def calc_bounds():
+def calc_bounds(ob):
     """Calculates the bounding box for selected vertices. Requires applied scale to work correctly. """
     # for some reason we must change into object mode for the calculations
-    mode = bpy.context.object.mode
+    mode = ob.mode
     bpy.ops.object.mode_set(mode='OBJECT')
 
     mesh = bpy.context.object.data
@@ -151,7 +172,7 @@ def calc_bounds():
 
     verts = [v for v in bme.verts if v.select]
 
-    bounds = calc_bounds_verts(bpy.context.object, verts)
+    bounds = calc_bounds_verts(verts, ob.matrix_world)
 
     bme.free()
 
@@ -160,9 +181,139 @@ def calc_bounds():
     return bounds
 
 
+def calc_matrix(ob, bme):
+    matrix = None
+
+    def normal_get(e):
+        return e.normal if hasattr(e, 'normal') else (e.verts[0].co - e.verts[1].co).normalized()
+
+    def filter_selected_normals(seq):
+        selected = [normal_get(e) for e in seq if e.select]
+        return selected if len(selected) > 0 else None
+
+    selected_faces_normals = filter_selected_normals(bme.faces)
+    selected_edges_normals = filter_selected_normals(bme.edges) if not selected_faces_normals else None
+    selected_verts_normals = filter_selected_normals(bme.verts) if not (
+        selected_faces_normals or selected_edges_normals) else None
+
+    normal_vector = None
+
+    if selected_faces_normals:
+        normal_vector = Vector(sum(selected_faces_normals, Vector())).normalized()
+    elif selected_edges_normals:
+        normal_vector = Vector(sum(selected_edges_normals, Vector())).normalized()
+    elif selected_verts_normals:
+        normal_vector = Vector(sum(selected_verts_normals, Vector())).normalized()
+
+    if normal_vector:
+        matrix = normal_vector.to_track_quat('Z', 'Y').to_matrix().to_4x4().inverted()
+    else:
+        matrix = ob.matrix_world
+
+    return matrix
+
+
+############ CAD Mesh Dimensions Blender Utility Functions #############
+
+
+CAD_MESH_DIMENSIONS_MAX_VERTS = 10000
+
+
+def cad_mesh_dimensions_is_enabled(ob):
+    return ob and ob.mode == 'EDIT' and len(ob.data.vertices) < CAD_MESH_DIMENSIONS_MAX_VERTS
+
+
+LENGTH = 0
+WIDTH = 1
+HEIGHT = 2
+
+hash_prev = 0
+transform_orientation_prev = None
+selected_elements_rep_prev = None
+lwh_012_mapping = None
+lwh_xyz_mapping = None
+
+
+def lwh_mapping_ensure(bme, bounds=None):
+    global selected_elements_rep_prev, lwh_012_mapping, lwh_xyz_mapping
+
+    selected_elements_rep_cur = SelectedElementsRep(bme)
+
+    if selected_elements_rep_cur != selected_elements_rep_prev:
+        selected_elements_rep_prev = selected_elements_rep_cur
+
+        tuples_sorted = sorted([(0, 'x', bounds['x']), (1, 'y', bounds['y']), (2, 'z', bounds['z'])],
+                               reverse=True, key=lambda tup: tup[2])
+        lwh_012_mapping = (tuples_sorted[0][0], tuples_sorted[1][0], tuples_sorted[2][0])
+        lwh_xyz_mapping = (tuples_sorted[0][1], tuples_sorted[1][1], tuples_sorted[2][1])
+
+    return lwh_xyz_mapping
+
+
+def transform_orientation_get(ob):
+    scene = bpy.context.scene
+
+    return (scene.transform_orientation_slots[0].type
+            if ob.cad_mesh_dimensions.orientation == 'TOOL_SETTINGS'
+            else ob.cad_mesh_dimensions.orientation)
+
+
+def update_dimensions(ob, bme, selected_verts):
+
+    if transform_orientation_get(ob) == 'NORMAL':
+        matrix = calc_matrix(ob, bme)
+    else:
+        matrix = ob.matrix_world
+
+    bounds = calc_bounds_verts(selected_verts, matrix)
+
+    global internal_update
+    wm = bpy.context.window_manager
+
+    internal_update = True
+    if transform_orientation_get(ob) == 'NORMAL':
+        lwh_mapping_ensure(bme, bounds)
+        wm.cad_mesh_dimensions.x = bounds[lwh_xyz_mapping[WIDTH]]
+        wm.cad_mesh_dimensions.y = bounds[lwh_xyz_mapping[LENGTH]]
+        wm.cad_mesh_dimensions.z = bounds[lwh_xyz_mapping[HEIGHT]]
+    else:
+        wm.cad_mesh_dimensions.x = bounds['x']
+        wm.cad_mesh_dimensions.y = bounds['y']
+        wm.cad_mesh_dimensions.z = bounds['z']
+    internal_update = False
+
+
+def update_dimensions_if_changed(ob):
+    global hash_prev, transform_orientation_prev
+
+    # start_time = time.time()
+
+    me = ob.data
+    bme = bmesh.from_edit_mesh(me)
+    selected_verts = [v for v in bme.verts if v.select]
+    hash_cur = vertices_hash(selected_verts)
+
+    transform_orientation_cur = transform_orientation_get(ob)
+
+    selected_elements_rep_cur = SelectedElementsRep(bme)
+
+    if (hash_prev != hash_cur
+            or transform_orientation_prev != transform_orientation_cur
+            or selected_elements_rep_cur != selected_elements_rep_prev):
+        hash_prev = hash_cur
+        transform_orientation_prev = transform_orientation_cur
+        # CAVEAT REFACTOR: Do not update 'selected_elements_rep_prev'
+        # 'lwh_mapping_ensure' will take care of that when needed.
+
+        update_dimensions(ob, bme, selected_verts)
+
+    # elapsed_time = time.time() - start_time
+    # print("elapsed_time", elapsed_time * 1000)
+
+
 def edit_dimensions(new_x, new_y, new_z):
     ob = bpy.context.object
-    bounds = calc_bounds()
+    bounds = calc_bounds(ob)
     if ob.mode != 'EDIT':
         ob.mode_set(mode='EDIT')
     x = safe_divide(new_x, bounds["x"])
@@ -190,16 +341,6 @@ def edit_dimensions(new_x, new_y, new_z):
     bpy.context.scene.cursor.location = orig_cursor_location
 
 
-############ CAD Mesh Dimensions Blender Utility Functions #############
-
-
-CAD_MESH_DIMENSIONS_MAX_VERTS = 10000
-
-
-def cad_mesh_dimensions_is_enabled(ob):
-    return ob and ob.mode == 'EDIT' and len(ob.data.vertices) < CAD_MESH_DIMENSIONS_MAX_VERTS
-
-
 ############# Blender Event Handlers ##############
 
 
@@ -209,15 +350,29 @@ internal_update = False
 def on_edit_dimensions_prop_changed(self, context):
     if not internal_update:
         bpy.ops.ed.undo_push()
-        edit_dimensions(self.cad_mesh_dimensions.x,
-                        self.cad_mesh_dimensions.y,
-                        self.cad_mesh_dimensions.z)
+        ob = context.object
+
+        if transform_orientation_get(ob) == 'NORMAL':
+            bme = bmesh.from_edit_mesh(ob.data)
+            matrix = calc_matrix(ob, bme)
+            mapped_cad_mesh_dimensions = Vector()
+            # pylint: disable=unsupported-assignment-operation
+            mapped_cad_mesh_dimensions[lwh_012_mapping[LENGTH]] = self.cad_mesh_dimensions.y
+            mapped_cad_mesh_dimensions[lwh_012_mapping[WIDTH]] = self.cad_mesh_dimensions.x
+            mapped_cad_mesh_dimensions[lwh_012_mapping[HEIGHT]] = self.cad_mesh_dimensions.z
+            dimensions = ob.matrix_world @ matrix.inverted() @ mapped_cad_mesh_dimensions
+        else:
+            dimensions = self.cad_mesh_dimensions
+
+        edit_dimensions(abs(dimensions.x),
+                        abs(dimensions.y),
+                        abs(dimensions.z))
 
 
 ############# Blender Extension Classes ##############
 
 
-#(identifier, name, description, icon, number)
+# (identifier, name, description, icon, number)
 CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM = [
     ('CURSOR', "3D Cursor", 'Transform from the 3D cursor', 'PIVOT_CURSOR', 0),
     ('MEDIAN_POINT', 'Median Point', 'Transform from the median point of the selected geometry', 'PIVOT_MEDIAN', 1),
@@ -227,6 +382,14 @@ CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM = [
         'Transform from whatever is currently configured as the Transform Pivot Point in the Tool Settings', 'BLENDER', 4)
 ]
 
+# (identifier, name, description, icon, number)
+CAD_DIM_TRANSFORM_ORIENTATION_ENUM = [
+    ('GLOBAL', "Global", 'Align the transformation axes to world space', 'ORIENTATION_GLOBAL', 0),
+    ('NORMAL', 'Normal', 'Align the transformation axes to average normal of selected element', 'ORIENTATION_NORMAL', 1),
+    ('TOOL_SETTINGS', 'Blender Tool Settings',
+        'Align the orientation to whatever is currently configured as the Transformation Orientation in the Tool Settings', 'BLENDER', 2)
+]
+
 
 class CAD_DIM_ObjectProperties(bpy.types.PropertyGroup):
     anchor: bpy.props.EnumProperty(
@@ -234,6 +397,12 @@ class CAD_DIM_ObjectProperties(bpy.types.PropertyGroup):
         description="Anchor Point for CAD Mesh Dimensions Transformations",
         items=CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM,
         default='OBJECT_ORIGIN'
+    )
+    orientation: bpy.props.EnumProperty(
+        name="Transformation Orientation",
+        description="Orientation for CAD Mesh Dimensions Transformations",
+        items=CAD_DIM_TRANSFORM_ORIENTATION_ENUM,
+        default='TOOL_SETTINGS'
     )
 
 
@@ -259,6 +428,15 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
         row = box.row()
         row.label(text="Transform Anchor Point:")
         row.prop(ob.cad_mesh_dimensions, 'anchor', icon_only=True)
+        row = box.row()
+        row.label(text="Transform Orientation:")
+        row.prop(ob.cad_mesh_dimensions, 'orientation', icon_only=True)
+
+        orientation = transform_orientation_get(ob)
+        if orientation not in ['GLOBAL', 'NORMAL']:
+            box.row().label(text="The orientation mode '%s'" % orientation.capitalize(), icon='ERROR')
+            box.row().label(text="in the Blender tool settings is not")
+            box.row().label(text="supported, defaulting to 'Global'.")
 
 
 class CAD_DIM_EditDimensionProperties(bpy.types.PropertyGroup):
@@ -273,61 +451,25 @@ classes = [
     CAD_DIM_PT_MeshTools,
 ]
 
+
 ############# SpaceView3D Draw Handler ##############
 
 
-hash_prev = 0
-
-
-def update_dimensions(ob, selected_verts):
-    bounds = calc_bounds_verts(ob, selected_verts)
-
-    global internal_update
-    context = bpy.context
-    wm = context.window_manager
-
-    internal_update = True
-    wm.cad_mesh_dimensions[0] = bounds["x"]
-    wm.cad_mesh_dimensions[1] = bounds["y"]
-    wm.cad_mesh_dimensions[2] = bounds["z"]
-    internal_update = False
-
-
-def update_dimensions_if_changed(ob_name):
-    global hash_prev
-
-    # start_time = time.time()
-
-    if ob_name in bpy.data.objects:
-        ob = bpy.data.objects[ob_name]
-        me = ob.data
-
-        bme = bmesh.from_edit_mesh(me)
-
-        selected_verts = [v for v in bme.verts if v.select]
-
-        hash_cur = vertices_hash(selected_verts)
-
-        if hash_prev != hash_cur:
-            hash_prev = hash_cur
-
-            update_dimensions(ob, selected_verts)
-
-    # elapsed_time = time.time() - start_time
-    # print("elapsed_time", elapsed_time * 1000)
-
-
 def spaceview3d_draw_handler():
-    global hash_prev
+    global hash_prev, transform_orientation_prev, selected_elements_rep_prev, lwh_012_mapping, lwh_xyz_mapping
 
     context = bpy.context
     ob = context.active_object
 
     if cad_mesh_dimensions_is_enabled(ob):
         if context.mode == 'EDIT_MESH':
-            update_dimensions_if_changed(ob.name)
+            update_dimensions_if_changed(ob)
         else:
             hash_prev = 0
+            transform_orientation_prev = None
+            selected_elements_rep_prev = None
+            lwh_012_mapping = None
+            lwh_xyz_mapping = None
 
 
 ############# Register/Unregister Hooks ##############
