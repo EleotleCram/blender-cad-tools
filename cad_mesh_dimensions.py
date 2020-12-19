@@ -448,15 +448,8 @@ class CAD_DIM_PT_MeshTools(bpy.types.Panel):
             box.row().label(text="supported, defaulting to 'Global'.")
 
 
-class CAD_DIM_EditDimensionProperties(bpy.types.PropertyGroup):
-    length: bpy.props.FloatProperty(name="Length", min=0, default=1, unit='LENGTH')
-    width: bpy.props.FloatProperty(name="Width", min=0, default=1, unit='LENGTH')
-    height: bpy.props.FloatProperty(name="Height", min=0, default=1, unit='LENGTH')
-
-
 classes = [
     CAD_DIM_ObjectProperties,
-    CAD_DIM_EditDimensionProperties,
     CAD_DIM_PT_MeshTools,
 ]
 
