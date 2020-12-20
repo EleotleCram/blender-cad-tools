@@ -303,12 +303,13 @@ def update_dimensions_if_changed(ob):
     hash_cur = vertices_hash(selected_verts)
 
     transform_orientation_cur = transform_orientation_get(ob)
+    is_transform_orientation_normal = transform_orientation_cur == 'NORMAL'
 
     selected_elements_rep_cur = SelectedElementsRep(bme)
 
     if (hash_prev != hash_cur
             or transform_orientation_prev != transform_orientation_cur
-            or selected_elements_rep_cur != selected_elements_rep_prev):
+            or (is_transform_orientation_normal and (selected_elements_rep_cur != selected_elements_rep_prev))):
         hash_prev = hash_cur
         transform_orientation_prev = transform_orientation_cur
         # CAVEAT REFACTOR: Do not update 'selected_elements_rep_prev'
