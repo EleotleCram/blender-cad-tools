@@ -495,6 +495,10 @@ def on_scene_updated(scene, depsgraph):
             else:
                 ob = bpy.data.objects[ob_name]
 
+            # Skip linked objects
+            if ob.library != None:
+                continue
+
             if ob and ob.cad_outline.is_enabled:
                 if ob.mode != 'EDIT':
                     ob_evaluated = ob.evaluated_get(depsgraph)
@@ -514,6 +518,10 @@ def on_scene_updated(scene, depsgraph):
 
     def sync_visibility():
         for ob in bpy.data.objects:
+            # Skip linked objects
+            if ob.library != None:
+                continue
+
             if ob.cad_outline.is_enabled:
                 should_be_hidden = not ob.visible_get() or ob.mode == 'EDIT'
                 cad_outline_object_hide_set(ob, should_be_hidden)
@@ -536,7 +544,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_instances():
         cols_instanced = set()
         cols_instanced.update(
-            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None])
+            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None and ob.library == None])
         for col_instanced in cols_instanced:
             obs = collection_objects_get(col_instanced)
             # dprint("Collection: ", col_instanced, "obs: ", obs)
