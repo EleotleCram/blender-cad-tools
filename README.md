@@ -10,7 +10,7 @@ _Blender CAD Tools_ is a collection of [Blender](https://blender.org/) __addons 
 
 ## Introduction
 
-I like use __Blender for CAD modelling__. And, in particular, for designs that are meant to be 3D printed, I think the non-destructive and non-linear workflow that Blender offers, exceeds that of any commercial _Solid Modelling_ tool. Especially if you are, like me, a hobbyist. I have only little spare time and I don't need to send blueprints of my designs to a production facility. In total, I think the trade-offs are favorable. As a bonus, you also don't get to be vendor locked-in (Fusion 360 anyone?), but this may be a topic for a different discussion;-)
+I like using __Blender for CAD modelling__. And, in particular, for designs that are meant to be 3D printed, I think the non-destructive and non-linear workflow that Blender offers, exceeds that of any commercial _Solid Modelling_ tool. Especially if you are, like me, a hobbyist. I have only little spare time and I don't need to send blueprints of my designs to a production facility. In total, I think the trade-offs are favorable. As a bonus, you also don't get to be vendor locked-in (Fusion 360 anyone?), but this may be a topic for a different discussion;-)
 
 What you will find here, is a collection of Blender addons that I've created as my personal productivity tools, or to simply making CAD designs in Blender even more enjoyable.
 These addons are small enough for me to maintain and tweak to do exactly what I need them to do in order __to speed up my workflow__ &ndash;Like I said, spare time is scarce.
