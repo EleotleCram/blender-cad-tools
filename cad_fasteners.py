@@ -256,6 +256,10 @@ def on_object_cad_fast_is_fastener_prop_updated(self, context):
         if re.match('M[^X]*X[^ \s]*.*', ob.name):
             size_designator = re.sub('M([^X]*)X.*', r'M\1', ob.name)
             length = re.sub('M[^X]*X([^ \s]*).*', r'\1', ob.name)
+        elif re.match('M[0-9]+ Nut.*', ob.name):
+            cad_fast_prop_set(ob, 'standard', 'DIN_934-1')
+            size_designator = re.sub('M([0-9]+) Nut.*', r'M\1', ob.name)
+            length = '10'
         else:
             size_designator = 'M5'
             length = '10'
