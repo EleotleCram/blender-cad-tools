@@ -269,6 +269,10 @@ def on_object_cad_fast_is_fastener_prop_updated(self, context):
 
         on_object_cad_fast_prop_updated(self, context)
 
+        # 'Satisfier' compromise:
+        if 'is_cad_outline_enabled' in context.scene and context.scene.is_cad_outline_enabled:
+            ob.cad_outline.is_enabled = True
+
 
 ############# Blender Extension Classes ##############
 
