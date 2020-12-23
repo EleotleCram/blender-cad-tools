@@ -217,7 +217,7 @@ def mesh_cache_refresh():
 
         for ob_outline in cad_outline_collection_ensure().objects:
             ob_mode = cad_outline_object_mode_get(ob_outline)
-            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0:
+            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0 and ob_outline.cad_outline.evaluated_mesh_hash not in mesh_cache:
                 dprint("mesh_cache update:  mesh_cache[%d] = " %
                        ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
                 mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash] = ob_outline.data.name
