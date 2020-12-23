@@ -319,8 +319,10 @@ def cad_outline_object_ensure(ob):
 
         ob_outline = bpy.data.objects[ob_outline_name]
         ob_outline.hide_select = not ob.cad_outline.debug
-        childof_constraints_clear(ob_outline)
-        childof_constraint_ensure(ob, ob_outline)
+
+        if childof_constraint_get(ob, ob_outline) is None:
+            childof_constraints_clear(ob_outline)
+            childof_constraint_ensure(ob, ob_outline)
 
         return ob_outline
     else:
