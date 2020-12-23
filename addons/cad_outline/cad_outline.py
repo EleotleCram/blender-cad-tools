@@ -35,7 +35,7 @@ import bpy
 bl_info = {
     "name": "CAD Outline",
     "author": "Marcel Toele",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Overlay objects with CAD-like outline",
@@ -75,6 +75,10 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
+def get_current_time_millis():
+    return int(round(time.time() * 1000))
+
+
 DEBUG = False
 
 if DEBUG:
@@ -82,6 +86,16 @@ if DEBUG:
         print(*args)
 else:
     def dprint(*args):
+        pass
+
+
+TIMING_REPORTS = False
+
+if TIMING_REPORTS:
+    def tprint(*args):
+        print(*args)
+else:
+    def tprint(*args):
         pass
 
 ############ Generic Blender Utility Functions #############
@@ -129,7 +143,7 @@ def vertices_hash(vertices):
     __hash = h.intdigest()
 
     elapsed_time = time.time() - start_time
-    dprint("elapsed_time", elapsed_time * 1000)
+    tprint("elapsed_time(vertices_hash)", elapsed_time * 1000)
 
     # The - 0x7fffffff is because Blender appears to
     # insist on a signed value, and this function
@@ -203,7 +217,7 @@ def mesh_cache_refresh():
 
         for ob_outline in cad_outline_collection_ensure().objects:
             ob_mode = cad_outline_object_mode_get(ob_outline)
-            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0:
+            if ob_mode != 'EDIT' and len(ob_outline.data.vertices) > 0 and ob_outline.cad_outline.evaluated_mesh_hash not in mesh_cache:
                 dprint("mesh_cache update:  mesh_cache[%d] = " %
                        ob_outline.cad_outline.evaluated_mesh_hash, ob_outline.data)
                 mesh_cache[ob_outline.cad_outline.evaluated_mesh_hash] = ob_outline.data.name
@@ -267,9 +281,11 @@ def cad_outline_object_hide_set(ob, should_be_hidden):
     if ob.cad_outline.is_enabled:
         ob_outline = cad_outline_object_get(ob)
         if ob_outline is not None:
-            if not ob.cad_outline.debug:
-                ob_outline.hide_set(should_be_hidden)
-            ob_outline.hide_viewport = should_be_hidden
+            # Read as: if should be hidden but is visible:
+            if should_be_hidden == ob_outline.visible_get():
+                if not ob.cad_outline.debug:
+                    ob_outline.hide_set(should_be_hidden)
+                ob_outline.hide_viewport = should_be_hidden
 
 
 def cad_outline_object_mode_get(ob_or_ob_outline):
@@ -303,8 +319,10 @@ def cad_outline_object_ensure(ob):
 
         ob_outline = bpy.data.objects[ob_outline_name]
         ob_outline.hide_select = not ob.cad_outline.debug
-        childof_constraints_clear(ob_outline)
-        childof_constraint_ensure(ob, ob_outline)
+
+        if childof_constraint_get(ob, ob_outline) is None:
+            childof_constraints_clear(ob_outline)
+            childof_constraint_ensure(ob, ob_outline)
 
         return ob_outline
     else:
@@ -351,6 +369,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
             me_old = ob_outline.data
             ob_outline.data = me_cached
             if me_old.users == 0:
+                dprint("deleting an outline for", ob.name)
                 mesh_cache_save_delete(ob_outline_prev_evaluated_mesh_hash)
                 bpy.data.meshes.remove(me_old, do_unlink=True)
         # Cache miss, recompute
@@ -468,6 +487,10 @@ def on_load_handler(_):
     mesh_cache_out_of_date = True
 
 
+THROTTLE_TIMEOUT = 333
+update_t_prev = 0
+
+
 @persistent
 def on_scene_updated(scene, depsgraph):
 
@@ -483,10 +506,10 @@ def on_scene_updated(scene, depsgraph):
         obs_updated = set()
         obs_updated.update(flatten(
             [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
-        # dprint("  `--> obs_updated", obs_updated)
 
         # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
         obs_updated_names = [ob.name for ob in obs_updated]
+        dprint("  `--> obs_updated_names", obs_updated_names)
 
         for ob_name in obs_updated_names:
 
@@ -501,6 +524,9 @@ def on_scene_updated(scene, depsgraph):
 
             if ob and ob.cad_outline.is_enabled:
                 if ob.mode != 'EDIT':
+                    dprint("ob('%s'):" % ob.name)
+                    if cad_outline_object_get(ob) is None:
+                        cad_outline_object_ensure(ob)
                     ob_evaluated = ob.evaluated_get(depsgraph)
                     prev_hash = ob.cad_outline.evaluated_mesh_hash
                     new_hash = vertices_hash(ob_evaluated.data.vertices)
@@ -519,7 +545,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_visibility():
         for ob in bpy.data.objects:
             # Skip linked objects
-            if ob.library != None:
+            if ob.library is not None:
                 continue
 
             if ob.cad_outline.is_enabled:
@@ -544,7 +570,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_instances():
         cols_instanced = set()
         cols_instanced.update(
-            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None and ob.library == None])
+            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection is not None and ob.library is not None])
         for col_instanced in cols_instanced:
             obs = collection_objects_get(col_instanced)
             # dprint("Collection: ", col_instanced, "obs: ", obs)
@@ -561,27 +587,39 @@ def on_scene_updated(scene, depsgraph):
         col_outline = cad_outline_collection_ensure()
         for ob_outline in col_outline.objects:
             ob_name = ob_outline.name[0:-3]  # <-- This just strips off the ".ol"
-            if ob_name not in bpy.data.objects:
+            if ob_name not in bpy.data.objects or bpy.data.objects[ob_name].library is not None:
                 dprint("cleanup ob_outline", ob_outline.name)
                 bpy.data.objects.remove(ob_outline, do_unlink=True)
             # else:
             #     dprint("original ob (%s) for ob_outline (%s) still exists, not cleaning up" % (
             #         ob_name, ob_outline.name))
 
-    # start_time = time.time()
+    start_time = time.time()
+    tprint("on_scene_updated")
 
-    update_outline_meshes()
+    def with_printed_time_report(name, cb):
+        start_time = time.time()
+        cb()
+        elapsed_time = time.time() - start_time
+        tprint("on_scene_updated.elapsed_time(%s)" % name, elapsed_time * 1000)
 
-    sync_visibility()
+    with_printed_time_report("update_outline_meshes", update_outline_meshes)
 
-    sync_local_view()
+    global update_t_prev
+    t_now = get_current_time_millis()
+    if THROTTLE_TIMEOUT > update_t_prev - t_now:
+        update_t_prev = t_now
 
-    sync_instances()
+        with_printed_time_report("sync_visibility", sync_visibility)
 
-    clean_up_stale_outlines()
+        with_printed_time_report("sync_local_view", sync_local_view)
 
-    # elapsed_time = time.time() - start_time
-    # dprint("on_scene_updated.elapsed_time", elapsed_time * 1000)
+        with_printed_time_report("sync_instances", sync_instances)
+
+        with_printed_time_report("clean_up_stale_outlines", clean_up_stale_outlines)
+
+    elapsed_time = time.time() - start_time
+    tprint("on_scene_updated.total_elapsed_time", elapsed_time * 1000)
 
 
 ############# Blender Extension Classes ##############
