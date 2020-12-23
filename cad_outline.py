@@ -75,6 +75,10 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
+def get_current_time_millis():
+    return int(round(time.time() * 1000))
+
+
 DEBUG = False
 
 if DEBUG:
@@ -470,6 +474,10 @@ def on_load_handler(_):
     mesh_cache_out_of_date = True
 
 
+THROTTLE_TIMEOUT = 333
+update_t_prev = 0
+
+
 @persistent
 def on_scene_updated(scene, depsgraph):
 
@@ -579,13 +587,18 @@ def on_scene_updated(scene, depsgraph):
 
     with_printed_time_report("update_outline_meshes", update_outline_meshes)
 
-    with_printed_time_report("sync_visibility", sync_visibility)
+    global update_t_prev
+    t_now = get_current_time_millis()
+    if THROTTLE_TIMEOUT > update_t_prev - t_now:
+        update_t_prev = t_now
 
-    with_printed_time_report("sync_local_view", sync_local_view)
+        with_printed_time_report("sync_visibility", sync_visibility)
 
-    with_printed_time_report("sync_instances", sync_instances)
+        with_printed_time_report("sync_local_view", sync_local_view)
 
-    with_printed_time_report("clean_up_stale_outlines", clean_up_stale_outlines)
+        with_printed_time_report("sync_instances", sync_instances)
+
+        with_printed_time_report("clean_up_stale_outlines", clean_up_stale_outlines)
 
     # elapsed_time = time.time() - start_time
     # print("on_scene_updated.total_elapsed_time", elapsed_time * 1000)
