@@ -367,6 +367,7 @@ def cad_outline_mesh_update(ob, ob_evaluated):
             me_old = ob_outline.data
             ob_outline.data = me_cached
             if me_old.users == 0:
+                dprint("deleting an outline for", ob.name)
                 mesh_cache_save_delete(ob_outline_prev_evaluated_mesh_hash)
                 bpy.data.meshes.remove(me_old, do_unlink=True)
         # Cache miss, recompute
@@ -494,6 +495,8 @@ def on_scene_updated(scene, depsgraph):
     if not scene.is_cad_outline_enabled:
         return
 
+    dprint("on_scene_updated")
+
     def update_outline_meshes():
         # Make sure mesh_cache is up-to-date:
         mesh_cache_refresh()
@@ -501,10 +504,10 @@ def on_scene_updated(scene, depsgraph):
         obs_updated = set()
         obs_updated.update(flatten(
             [depsgraph_update_objects_find(update) for update in depsgraph.updates]))
-        # dprint("  `--> obs_updated", obs_updated)
 
         # Keeping references to python wrappers is unsafe and leads to quick Blender terminations (AKA crashes):
         obs_updated_names = [ob.name for ob in obs_updated]
+        dprint("  `--> obs_updated_names", obs_updated_names)
 
         for ob_name in obs_updated_names:
 
@@ -519,6 +522,7 @@ def on_scene_updated(scene, depsgraph):
 
             if ob and ob.cad_outline.is_enabled:
                 if ob.mode != 'EDIT':
+                    dprint("ob('%s'):" % ob.name)
                     ob_evaluated = ob.evaluated_get(depsgraph)
                     prev_hash = ob.cad_outline.evaluated_mesh_hash
                     new_hash = vertices_hash(ob_evaluated.data.vertices)
