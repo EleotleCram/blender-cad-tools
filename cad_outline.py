@@ -561,7 +561,7 @@ def on_scene_updated(scene, depsgraph):
         col_outline = cad_outline_collection_ensure()
         for ob_outline in col_outline.objects:
             ob_name = ob_outline.name[0:-3]  # <-- This just strips off the ".ol"
-            if ob_name not in bpy.data.objects:
+            if ob_name not in bpy.data.objects or bpy.data.objects[ob_name].library is not None:
                 dprint("cleanup ob_outline", ob_outline.name)
                 bpy.data.objects.remove(ob_outline, do_unlink=True)
             # else:
