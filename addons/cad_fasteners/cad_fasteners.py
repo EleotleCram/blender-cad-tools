@@ -31,7 +31,7 @@ import bpy
 bl_info = {
     "name": "CAD Fasteners",
     "author": "Marcel Toele",
-    "version": (1, 0),
+    "version": (1, 0, 1),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Quickly add fasteners to your CAD assemblies",
@@ -187,8 +187,23 @@ def cad_fast_object_template_ensure(ob=None):
     return cad_fast_type.template_ensure(ob)
 
 
+def cad_fast_object_free_name_get(ob_fastener, ob_fastener_tpl):
+    ob_fastener_basename = ob_fastener_tpl.name[:-4]
+    if bool(re.match(r'%s\.\d\d\d' % ob_fastener_basename, ob_fastener.name)):
+        return ob_fastener.name
+    elif ob_fastener_basename not in bpy.data.objects:
+        return ob_fastener_basename
+    else:
+        for i in range(1, 1000):
+            ob_fastener_name = "%s.%03d" % (ob_fastener_basename, i)
+            if ob_fastener_name not in bpy.data.objects:
+                print("Free fastener name:", ob_fastener_name)
+                return ob_fastener_name
+
+
+
 def cad_fast_object_update(ob_fastener, ob_fastener_tpl):
-    ob_fastener.name = ob_fastener_tpl.name[:-4]
+    ob_fastener.name = cad_fast_object_free_name_get(ob_fastener, ob_fastener_tpl)
     me_old = ob_fastener.data
     ob_fastener.data = ob_fastener_tpl.data
 
