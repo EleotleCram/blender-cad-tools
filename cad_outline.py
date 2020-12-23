@@ -474,8 +474,6 @@ def on_scene_updated(scene, depsgraph):
     if not scene.is_cad_outline_enabled:
         return
 
-    dprint("on_scene_updated")
-
     def update_outline_meshes():
         # Make sure mesh_cache is up-to-date:
         mesh_cache_refresh()
@@ -569,19 +567,26 @@ def on_scene_updated(scene, depsgraph):
             #         ob_name, ob_outline.name))
 
     # start_time = time.time()
+    # print("on_scene_updated")
 
-    update_outline_meshes()
+    def with_printed_time_report(name, cb):
+        start_time = time.time()
+        cb()
+        elapsed_time = time.time() - start_time
+        # print("on_scene_updated.elapsed_time(%s)" % name, elapsed_time * 1000)
 
-    sync_visibility()
+    with_printed_time_report("update_outline_meshes", update_outline_meshes)
 
-    sync_local_view()
+    with_printed_time_report("sync_visibility", sync_visibility)
 
-    sync_instances()
+    with_printed_time_report("sync_local_view", sync_local_view)
 
-    clean_up_stale_outlines()
+    with_printed_time_report("sync_instances", sync_instances)
+
+    with_printed_time_report("clean_up_stale_outlines", clean_up_stale_outlines)
 
     # elapsed_time = time.time() - start_time
-    # dprint("on_scene_updated.elapsed_time", elapsed_time * 1000)
+    # print("on_scene_updated.total_elapsed_time", elapsed_time * 1000)
 
 
 ############# Blender Extension Classes ##############
