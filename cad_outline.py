@@ -527,7 +527,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_visibility():
         for ob in bpy.data.objects:
             # Skip linked objects
-            if ob.library != None:
+            if ob.library is not None:
                 continue
 
             if ob.cad_outline.is_enabled:
@@ -552,7 +552,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_instances():
         cols_instanced = set()
         cols_instanced.update(
-            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection != None and ob.library == None])
+            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection is not None and ob.library is not None])
         for col_instanced in cols_instanced:
             obs = collection_objects_get(col_instanced)
             # dprint("Collection: ", col_instanced, "obs: ", obs)
