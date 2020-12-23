@@ -88,6 +88,16 @@ else:
     def dprint(*args):
         pass
 
+
+TIMING_REPORTS = False
+
+if TIMING_REPORTS:
+    def tprint(*args):
+        print(*args)
+else:
+    def tprint(*args):
+        pass
+
 ############ Generic Blender Utility Functions #############
 
 
@@ -133,7 +143,7 @@ def vertices_hash(vertices):
     __hash = h.intdigest()
 
     elapsed_time = time.time() - start_time
-    dprint("elapsed_time", elapsed_time * 1000)
+    tprint("elapsed_time(vertices_hash)", elapsed_time * 1000)
 
     # The - 0x7fffffff is because Blender appears to
     # insist on a signed value, and this function
@@ -576,14 +586,14 @@ def on_scene_updated(scene, depsgraph):
             #     dprint("original ob (%s) for ob_outline (%s) still exists, not cleaning up" % (
             #         ob_name, ob_outline.name))
 
-    # start_time = time.time()
-    # print("on_scene_updated")
+    start_time = time.time()
+    tprint("on_scene_updated")
 
     def with_printed_time_report(name, cb):
         start_time = time.time()
         cb()
         elapsed_time = time.time() - start_time
-        # print("on_scene_updated.elapsed_time(%s)" % name, elapsed_time * 1000)
+        tprint("on_scene_updated.elapsed_time(%s)" % name, elapsed_time * 1000)
 
     with_printed_time_report("update_outline_meshes", update_outline_meshes)
 
@@ -600,8 +610,8 @@ def on_scene_updated(scene, depsgraph):
 
         with_printed_time_report("clean_up_stale_outlines", clean_up_stale_outlines)
 
-    # elapsed_time = time.time() - start_time
-    # print("on_scene_updated.total_elapsed_time", elapsed_time * 1000)
+    elapsed_time = time.time() - start_time
+    tprint("on_scene_updated.total_elapsed_time", elapsed_time * 1000)
 
 
 ############# Blender Extension Classes ##############
