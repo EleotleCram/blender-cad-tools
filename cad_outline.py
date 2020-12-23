@@ -523,6 +523,8 @@ def on_scene_updated(scene, depsgraph):
             if ob and ob.cad_outline.is_enabled:
                 if ob.mode != 'EDIT':
                     dprint("ob('%s'):" % ob.name)
+                    if cad_outline_object_get(ob) is None:
+                        cad_outline_object_ensure(ob)
                     ob_evaluated = ob.evaluated_get(depsgraph)
                     prev_hash = ob.cad_outline.evaluated_mesh_hash
                     new_hash = vertices_hash(ob_evaluated.data.vertices)
