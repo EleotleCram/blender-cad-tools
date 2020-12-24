@@ -35,7 +35,7 @@ import bpy
 bl_info = {
     "name": "CAD Outline",
     "author": "Marcel Toele",
-    "version": (1, 0, 2),
+    "version": (1, 0, 3),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Overlay objects with CAD-like outline",
@@ -570,7 +570,7 @@ def on_scene_updated(scene, depsgraph):
     def sync_instances():
         cols_instanced = set()
         cols_instanced.update(
-            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection is not None and ob.library is not None])
+            [ob.instance_collection for ob in bpy.data.objects if ob.instance_collection is not None and ob.library is None])
         for col_instanced in cols_instanced:
             obs = collection_objects_get(col_instanced)
             # dprint("Collection: ", col_instanced, "obs: ", obs)
