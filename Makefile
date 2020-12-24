@@ -19,4 +19,7 @@ addons/%:
 addons/%.update: addons/%
 	GIT_EDITOR=/bin/cat git subtree pull  -P $< ../$< main
 
-.PHONY: addons/%.update
+publish:
+	git push origin main
+
+.PHONY: addons/%.update publish
