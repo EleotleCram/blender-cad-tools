@@ -38,7 +38,13 @@ addons/%/CHANGELOG.md: addons/% FORCE
 changelogs: $(ADDONS_CHANGELOG_UPDATE)
 	@echo "All changelogs done."
 
+RED := \033[0;31m
+OFF := \033[0m
 publish: all
+	@if [ -n "$$(git status --porcelain)" ] ; then \
+		echo -e "\n   ${RED}ERROR${OFF}: Working directory not clean; cannot publish.\n" ; \
+		exit 1 ; \
+	fi
 	git push origin main
 
 .PHONY: addons/%.update addons/%/CHANGELOG.md changelogs publish
