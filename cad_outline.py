@@ -35,7 +35,7 @@ import bpy
 bl_info = {
     "name": "CAD Outline",
     "author": "Marcel Toele",
-    "version": (1, 0, 2),
+    "version": (1, 0, 3),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Overlay objects with CAD-like outline",
