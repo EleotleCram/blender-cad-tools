@@ -35,7 +35,7 @@ The [CAD Outline](#cad-outline) addon adds a CAD outline to objects¹ drawn in t
 <sup>¹ Objects for which it has been enabled. (See animation.)</sup>
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download CAD Outline](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_outline) (Control+Click)</sup>
+<sup>[Download CAD Outline](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_outline) (Control+Click) | [CHANGELOG](addons/cad_outline/CHANGELOG.md)</sup>
 
 ### Toggle Hide
 
@@ -49,7 +49,7 @@ I like to think of this addon as getting an extra 'edit mode'. Because of it, pu
 This addon combines nicely with the BoxCutter and HardOps addons as well. (As these put the cutter objects under a generic name in a 'Cutters' collection. This addon will then allow for quick access to those boolean cutter objects.)
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download Toggle Hide](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/obref_toggle_hide) (Control+Click)</sup>
+<sup>[Download Toggle Hide](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/obref_toggle_hide) (Control+Click) | [CHANGELOG](addons/obref_toggle_hide/CHANGELOG.md)</sup>
 
 ### CAD Mesh Dimensions
 
@@ -59,7 +59,7 @@ This addon combines nicely with the BoxCutter and HardOps addons as well. (As th
 The [CAD Mesh Dimensions](#cad-mesh-dimensions) addon allows to quickly dimension a part directly in the 3D viewport. No sketches required. The video explains it all.
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download CAD Mesh Dimensions](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_mesh_dimensions) (Control+Click)</sup>
+<sup>[Download CAD Mesh Dimensions](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_mesh_dimensions) (Control+Click) | [CHANGELOG](addons/cad_mesh_dimensions/CHANGELOG.md)</sup>
 
 ### Auto Constraint Tools
 
@@ -71,7 +71,7 @@ The [Auto Constraint Tools](#auto-constraint-tools) addon automatically manages 
 This addon combines nicely with the BoxCutter and HardOps addons as well. (As these put the cutter objects under a generic name in a 'Cutters' collection. This addon will then automatically constraint those boolean cutter objects, so that, when you move the main CAD Part object, the modifier objects will move along.) 
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download Auto Constraint Tools](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/auto_constraint_tools) (Control+Click)</sup>
+<sup>[Download Auto Constraint Tools](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/auto_constraint_tools) (Control+Click) | [CHANGELOG](addons/auto_constraint_tools/CHANGELOG.md)</sup>
 
 ### Isolate Collections
 
@@ -83,7 +83,7 @@ The [Isolate Collections](#isolate-collections) addon allows you to use keys 1-9
 This addon works especially well, when assemblies get bigger and bigger. Not only is it nice to quickly focus on a particular sub-assembly, it also lowers the required hardware to comfortably navigate these assemblies in Blender.
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download Isolate Collections](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/isolate_collections) (Control+Click)</sup>
+<sup>[Download Isolate Collections](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/isolate_collections) (Control+Click) | [CHANGELOG](addons/isolate_collections/CHANGELOG.md)</sup>
 
 ### CAD Fasteners
 
@@ -93,4 +93,4 @@ This addon works especially well, when assemblies get bigger and bigger. Not onl
 The [CAD Fasteners](#cad-fasteners) addon is  little purpose-built asset manager for fasteners (metric only, at the moment). Using accurate dimensions as specified in the various ISO and DIN standard documents, it makes adding fasteners to your assembly a breeze. Need a slightly longer bolt? Or a different drive type? That's easily changed as well. To top it off, the addon makes sure that meshes are reused where possible, to keep your blend files small.
 
 &ndash;&ndash;&ndash;&ndash;&ndash;&ndash;<br/>
-<sup>[Download CAD Fasteners](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_fasteners) (Control+Click)</sup>
+<sup>[Download CAD Fasteners](https://kinolien.github.io/gitzip/?download=https://github.com/EleotleCram/blender-cad-tools/tree/main/addons/cad_fasteners) (Control+Click) | [CHANGELOG](addons/cad_fasteners/CHANGELOG.md)</sup>
