@@ -24,7 +24,7 @@ import bpy
 bl_info = {
     "name": "ObRef Toggle Hide",
     "author": "Marcel Toele",
-    "version": (1, 0),
+    "version": (1, 0, 2),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Toggle visibility of referenced modifier objects",
@@ -47,14 +47,18 @@ of all the referenced modifier objects
 
     @classmethod
     def poll(cls, context):
-        selected = context.selected_objects
-        if all(obj.type == "MESH" for obj in selected):
-            return True
+        if hasattr(context, 'selected_objects'):
+            selected = context.selected_objects
+            if all(obj.type == "MESH" for obj in selected):
+                return True
+
+        return False
 
     def execute(self, context):
         selected = context.selected_objects
         all_modifiers_of_selected_objects = [m for obj in selected for m in obj.modifiers]
-        all_boolean_modifiers = [m for m in all_modifiers_of_selected_objects if m.type == 'BOOLEAN']
+        all_boolean_modifiers = [
+            m for m in all_modifiers_of_selected_objects if m.type == 'BOOLEAN' and m.show_viewport]
 
         space_data = context.space_data
         from_local_view = space_data.local_view is not None
