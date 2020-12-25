@@ -57,7 +57,8 @@ of all the referenced modifier objects
     def execute(self, context):
         selected = context.selected_objects
         all_modifiers_of_selected_objects = [m for obj in selected for m in obj.modifiers]
-        all_boolean_modifiers = [m for m in all_modifiers_of_selected_objects if m.type == 'BOOLEAN']
+        all_boolean_modifiers = [
+            m for m in all_modifiers_of_selected_objects if m.type == 'BOOLEAN' and m.show_viewport]
 
         space_data = context.space_data
         from_local_view = space_data.local_view is not None
