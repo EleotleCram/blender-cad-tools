@@ -47,9 +47,12 @@ of all the referenced modifier objects
 
     @classmethod
     def poll(cls, context):
-        selected = context.selected_objects
-        if all(obj.type == "MESH" for obj in selected):
-            return True
+        if hasattr(context, 'selected_objects'):
+            selected = context.selected_objects
+            if all(obj.type == "MESH" for obj in selected):
+                return True
+
+        return False
 
     def execute(self, context):
         selected = context.selected_objects
