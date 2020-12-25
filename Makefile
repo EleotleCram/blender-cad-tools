@@ -33,7 +33,8 @@ addons/%/CHANGELOG.md: addons/% FORCE
 		echo ""\
 	) |\
 		sed '/^$$/N;/^\n$$/D' |\
-		sed 's/\([^ :;.,]*_[^ :;.,]*\)/`\1`/g' > $@
+		sed 's/\([^ :;.,]*_[^ :;.,]*\)/`\1`/g' |\
+		sed 's/\([^`]\)\(#[a-zA-Z_][^ :;.,]*\)/\1`\2`/g' > $@
 
 changelogs: $(ADDONS_CHANGELOG_UPDATE)
 	@echo "All changelogs done."
