@@ -24,7 +24,7 @@ import bpy
 bl_info = {
     "name": "ObRef Toggle Hide",
     "author": "Marcel Toele",
-    "version": (1, 0),
+    "version": (1, 0, 1),
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Toggle visibility of referenced modifier objects",
