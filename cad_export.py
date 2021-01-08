@@ -28,7 +28,7 @@ import bpy_extras
 bl_info = {
     "name": "CAD Export",
     "author": "Marcel Toele",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (2, 80, 0),
     "location": "File > Import-Export",
     "description": "Enhanced exporter for CAD designs",
