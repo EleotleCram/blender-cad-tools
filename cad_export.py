@@ -50,6 +50,21 @@ def toggle_supports(supports_to_enable, show_viewport):
             mod.show_viewport = show_viewport
 
 
+def obs_bed_orientation_apply(obs):
+    obs_with_custom_bed_orientation = [ob for ob in obs if next(
+        (c for c in ob.constraints if c.name == "Bed Orientation"), None)]
+    saved_matrices = [(ob.name, ob.matrix_world.copy()) for ob in obs_with_custom_bed_orientation]
+    for ob in obs_with_custom_bed_orientation:
+        ob.matrix_world = ob.matrix_world @ ob.constraints['Bed Orientation'].target.matrix_world.normalized().inverted()
+
+    return saved_matrices
+
+
+def obs_orig_orientation_restore(saved_matrices):
+    for ob_name, ob_matrix_world_orig in saved_matrices:
+        bpy.data.objects[ob_name].matrix_world = ob_matrix_world_orig
+
+
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 # pylint: disable=undefined-variable
@@ -67,7 +82,11 @@ class CADEX_OT_ExportSTL(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 
         toggle_supports(supports_to_enable, True)
 
+        saved_matrices = obs_bed_orientation_apply(context.selected_objects)
+
         bpy.ops.export_mesh.stl(use_selection=True, filepath=self.filepath)
+
+        obs_orig_orientation_restore(saved_matrices)
 
         toggle_supports(supports_to_enable, False)
 
@@ -76,6 +95,8 @@ class CADEX_OT_ExportSTL(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 
 classes = [
     CADEX_OT_ExportSTL,
+
+
 ]
 
 
