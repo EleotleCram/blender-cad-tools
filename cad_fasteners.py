@@ -722,10 +722,38 @@ class DROP_IN_T_NUT_2020(T_NUT):
     }
 
 
+class DROP_IN_T_NUT_3030(T_NUT):
+    name_template = '3030 ${size_designator} Drop In T-Nut'
+    master_template = '3030 Drop In T-Nut'
+    standard = 'DROP_IN_T_NUT_3030'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 5.5, 'h': 2.4},
+        'M4':   {'s': 7,   'h': 3.2},
+        'M5':   {'s': 8,   'h': 4},
+        'M6':   {'s': 10,  'h': 5},
+        # autopep8: on
+    }
+
+
 class SLIDING_T_NUT_2020(T_NUT):
     name_template = '2020 ${size_designator} Sliding T-Nut'
     master_template = '2020 Sliding T-Nut'
     standard = 'SLIDING_T_NUT_2020'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 9.8, 'h': 4.5},
+        'M4':   {'s': 9.8, 'h': 4.5},
+        'M5':   {'s': 9.8, 'h': 4.5},
+        'M6':   {'s': 9.8, 'h': 4.5},
+        # autopep8: on
+    }
+
+
+class SLIDING_T_NUT_3030(T_NUT):
+    name_template = '3030 ${size_designator} Sliding T-Nut'
+    master_template = '3030 Sliding T-Nut'
+    standard = 'SLIDING_T_NUT_3030'
     dimensions = {
         # autopep8: off
         'M3':   {'s': 9.8, 'h': 4.5},
@@ -753,6 +781,8 @@ CAD_FAST_STD_ENUM = [
     ('ISO_4026', "Set Screw (ISO 4026)", 'A Metric set screw'),
     ('DROP_IN_T_NUT_2020', "Drop In T-Nut (2020)", 'A Drop In T-Nut for a 2020 extrusion'),
     ('SLIDING_T_NUT_2020', "Sliding T-Nut (2020)", 'A Sliding T-Nut for a 2020 extrusion'),
+    ('DROP_IN_T_NUT_3030', "Drop In T-Nut (3030)", 'A Drop In T-Nut for a 3030 extrusion'),
+    ('SLIDING_T_NUT_3030', "Sliding T-Nut (3030)", 'A Sliding T-Nut for a 3030 extrusion'),
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -766,6 +796,8 @@ CAD_FAST_STD_TYPES = {
     'ISO_4026': ISO_4026,
     'DROP_IN_T_NUT_2020': DROP_IN_T_NUT_2020,
     'SLIDING_T_NUT_2020': SLIDING_T_NUT_2020,
+    'DROP_IN_T_NUT_3030': DROP_IN_T_NUT_3030,
+    'SLIDING_T_NUT_3030': SLIDING_T_NUT_3030,
 }
 
 CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
