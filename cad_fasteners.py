@@ -92,14 +92,16 @@ def depsgraph_update_objects_find(update):
 
 
 class BMeshFromEvaluated(object):
-    def __init__(self, ob_src, ob_tgt = None):
+    def __init__(self, ob_src, ob_tgt=None):
         self.ob_src = ob_src
         self.ob_tgt = ob_tgt if ob_tgt is not None else ob_src
         self.bme = bmesh.new()
+
     def __enter__(self):
         ob_evaluated = self.ob_src.evaluated_get(bpy.context.evaluated_depsgraph_get())
         self.bme.from_mesh(ob_evaluated.data)
         return self.bme
+
     def __exit__(self, type, value, traceback):
         self.bme.to_mesh(self.ob_tgt.data)
         self.bme.free()
@@ -199,7 +201,6 @@ def cad_fast_object_free_name_get(ob_fastener, ob_fastener_tpl):
             if ob_fastener_name not in bpy.data.objects:
                 print("Free fastener name:", ob_fastener_name)
                 return ob_fastener_name
-
 
 
 def cad_fast_object_update(ob_fastener, ob_fastener_tpl):
@@ -702,7 +703,7 @@ class T_NUT(MetricNut):
     @classmethod
     def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
-        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
+        diam = 0.9 * cls.diameter_get(size_designator)  # 0.9 -> minor thread approximation
 
         ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
         ob_bore.dimensions = (diam, diam, 10)
@@ -806,13 +807,13 @@ CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
     'M3': (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50),
     'M4': (5, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60),
     'M5': (6, 8, 10, 12, 14, 16, 18, 20, 25,
-            30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80),
+           30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80),
     'M6': (8, 10, 12, 14, 16, 18, 20, 25, 30, 35,
-            40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+           40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M8': (12, 14, 16, 18, 20, 25, 30, 35, 40,
-            45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+           45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M10': (16, 18, 20, 25, 30, 35, 40, 45,
-             50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+            50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M12': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M14': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M16': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
@@ -1014,6 +1015,7 @@ def unregister():
 
     del bpy.types.Object.cad_fast
     del bpy.types.Scene.cad_fasteners_blend_timestamp
+
 
 if __name__ == "__main__":
     register()
