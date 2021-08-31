@@ -505,13 +505,6 @@ class CountersunkHead(RoundScrewHead):
                 ob.cad_outline.sharp_angle = sharp_angle
 
 
-class SocketDrive:
-    @classmethod
-    def s_dim_get(cls, size_designator):
-        dim = cls.dimensions[size_designator]
-        return dim['s']
-
-
 class HexHead:
     head_type = 'Hex Head'
     drive_offset = -2
@@ -520,6 +513,13 @@ class HexHead:
     def head_dim_get(cls, size_designator):
         dim = cls.dimensions[size_designator]
         return (dim['s'], dim['k'])
+
+
+class SocketDrive:
+    @classmethod
+    def s_dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return dim['s']
 
 
 class ISO_7380(ButtonHead, MetricScrew, SocketDrive):
