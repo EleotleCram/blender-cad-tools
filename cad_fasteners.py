@@ -460,6 +460,11 @@ class ButtonHead(RoundScrewHead):
     drive_offset = -2.8
 
 
+class PanHead(RoundScrewHead):
+    head_type = 'Pan Head'
+    drive_offset = -2
+
+
 class CountersunkHead(RoundScrewHead):
     head_type = 'Countersunk Head'
     drive_offset = 0
@@ -701,13 +706,71 @@ class DIN_934_1(MetricNut):
     }
 
 
+class HexSocketPanHeadSleeveNut(PanHead, Metric, Screw, SocketDrive):
+    standard = 'HexSocketPanHeadSleeveNut'
+    master_template = 'M5 Sleeve Nut Template'
+    name_template = '${size_designator}X${length} ${drive_type} ${head_type} Sleeve Nut'
+    drive_type = 'Hex Socket'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'OD': 3.9, 'dk': 8.4,  'k': 1.8, 's': 2.5},
+        'M4':   {'OD': 4.9, 'dk': 8.6,  'k': 1.9, 's': 2.5},
+        'M5':   {'OD': 5.9, 'dk': 10.5, 'k': 2.2, 's': 3},
+        'M6':   {'OD': 7.9, 'dk': 13.2, 'k': 2.6, 's': 4},
+        'M8':   {'OD': 9.9, 'dk': 16.2, 'k': 3,   's': 5},
+        # autopep8: on
+    }
+
+    @classmethod
+    def diameter_get(cls, size_designator):
+        return cls.dimensions[size_designator]['OD']
+
+    @classmethod
+    def metric_diameter_get(cls, size_designator):
+        return float(size_designator[1:])
+
+    @classmethod
+    def bore_construct(cls, size_designator, length):
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore.hide_viewport = False
+
+        ob_bore_tmp = bpy.data.objects.new('temp-screw-head', ob_bore.data.copy())
+
+        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
+        with BMeshFromEvaluated(ob_bore, ob_bore_tmp):
+            pass
+
+        ob_bore.hide_viewport = True
+
+        diam_bore = 0.9 * cls.metric_diameter_get(size_designator)  # 0.9 -> minor thread approximation
+
+        object_dimensions_from_width_and_height_set(ob_bore_tmp, diam_bore, 2.5 * length)
+
+        location_bore = ob_bore.location.copy()
+        location_bore.z = -0.5 * diam_bore  # Prevent socket drive and bore overlap
+        ob_bore_tmp.matrix_world = Matrix.Translation(location_bore)
+
+        return ob_bore_tmp
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+
+        super(HexSocketPanHeadSleeveNut, cls).construct(ob_fastener_tpl, ob)
+
+        size_designator = cls.attr(ob, "size_designator")
+        length = float(cls.attr(ob, "length"))
+        ob_bore = cls.bore_construct(size_designator, length)
+
+        ob_fastener_tpl.modifiers['Bore'].object = ob_bore
+
+
 class T_NUT(MetricNut):
     @classmethod
     def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
         diam = 0.9 * cls.diameter_get(size_designator)  # 0.9 -> minor thread approximation
 
-        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['T-Nut Bore']
         ob_bore.dimensions = (diam, diam, 10)
         object_transform_apply(ob_bore)
 
@@ -786,6 +849,8 @@ CAD_FAST_STD_ENUM = [
     ('SLIDING_T_NUT_2020', "Sliding T-Nut (2020)", 'A Sliding T-Nut for a 2020 extrusion'),
     ('DROP_IN_T_NUT_3030', "Drop In T-Nut (3030)", 'A Drop In T-Nut for a 3030 extrusion'),
     ('SLIDING_T_NUT_3030', "Sliding T-Nut (3030)", 'A Sliding T-Nut for a 3030 extrusion'),
+    ('HexSocketPanHeadSleeveNut', "Hex Socket Pan head sleeve nut",
+     'A sleeve nut with a Pan head and a hex socket drive')
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -801,6 +866,7 @@ CAD_FAST_STD_TYPES = {
     'SLIDING_T_NUT_2020': SLIDING_T_NUT_2020,
     'DROP_IN_T_NUT_3030': DROP_IN_T_NUT_3030,
     'SLIDING_T_NUT_3030': SLIDING_T_NUT_3030,
+    'HexSocketPanHeadSleeveNut': HexSocketPanHeadSleeveNut,
 }
 
 CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
