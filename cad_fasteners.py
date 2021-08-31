@@ -389,56 +389,6 @@ class Screw(Fastener):
     length = 8
 
     @classmethod
-    def screw_head_construct(cls, size_designator):
-        ob_head = bpy.data.objects[cls.head_type]
-        ob_head.hide_viewport = False
-
-        ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
-
-        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
-        with BMeshFromEvaluated(ob_head, ob_head_tmp) as bme:
-            pass
-
-        ob_head.hide_viewport = True
-
-        width, height = cls.head_dim_get(size_designator)
-        object_dimensions_from_width_and_height_set(ob_head_tmp, width, height)
-
-        # Heads should be at origin, but this allows for absolute (AKA non-scaled)
-        # fine-tuned offsets to avoid Boolean mess ups:
-        ob_head_tmp.matrix_world = Matrix.Translation(ob_head.location.copy())
-
-        return ob_head_tmp
-
-    @classmethod
-    def screw_drive_cutter_construct(cls, size_designator):
-        diam = cls.diameter_get(size_designator)
-        scale_factor = diam / 5
-
-        ob_drive_cutter = bpy.data.objects[cls.drive_type]
-        ob_drive_cutter.hide_viewport = False
-
-        ob_drive_cutter_tmp = bpy.data.objects.new('temp-drive-cutter', ob_drive_cutter.data.copy())
-
-        ob_drive_cutter_tmp.scale = (scale_factor, scale_factor, scale_factor)
-        object_transform_apply(ob_drive_cutter_tmp)
-
-        # S for Socket or Slot (depending on drive type)
-        s_width = cls.s_dim_get(size_designator)
-        object_dimensions_from_width_and_height_set(ob_drive_cutter_tmp, s_width, ob_drive_cutter_tmp.dimensions.z)
-
-        if cls.drive_offset != 0:
-            if cls.head_type is not None:
-                _, head_height = cls.head_dim_get(size_designator)
-                ob_drive_cutter_tmp.location.z = head_height
-            else:
-                ob_drive_cutter_tmp.location.z = cls.drive_offset * scale_factor
-
-        ob_drive_cutter.hide_viewport = True
-
-        return ob_drive_cutter_tmp
-
-    @classmethod
     def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
         diam = cls.diameter_get(size_designator)
@@ -474,7 +424,31 @@ class MetricScrew(Screw, Metric):
     master_template = 'M5 Screw Template'
 
 
-class RoundScrewHead:
+class ScrewHead:
+    @classmethod
+    def screw_head_construct(cls, size_designator):
+        ob_head = bpy.data.objects[cls.head_type]
+        ob_head.hide_viewport = False
+
+        ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
+
+        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
+        with BMeshFromEvaluated(ob_head, ob_head_tmp) as bme:
+            pass
+
+        ob_head.hide_viewport = True
+
+        width, height = cls.head_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_head_tmp, width, height)
+
+        # Heads should be at origin, but this allows for absolute (AKA non-scaled)
+        # fine-tuned offsets to avoid Boolean mess ups:
+        ob_head_tmp.matrix_world = Matrix.Translation(ob_head.location.copy())
+
+        return ob_head_tmp
+
+
+class RoundScrewHead(ScrewHead):
     @classmethod
     def head_dim_get(cls, size_designator):
         dim = cls.dimensions[size_designator]
@@ -505,7 +479,7 @@ class CountersunkHead(RoundScrewHead):
                 ob.cad_outline.sharp_angle = sharp_angle
 
 
-class HexHead:
+class HexHead(ScrewHead):
     head_type = 'Hex Head'
     drive_offset = -2
 
@@ -520,6 +494,34 @@ class SocketDrive:
     def s_dim_get(cls, size_designator):
         dim = cls.dimensions[size_designator]
         return dim['s']
+
+    @classmethod
+    def screw_drive_cutter_construct(cls, size_designator):
+        diam = cls.diameter_get(size_designator)
+        scale_factor = diam / 5
+
+        ob_drive_cutter = bpy.data.objects[cls.drive_type]
+        ob_drive_cutter.hide_viewport = False
+
+        ob_drive_cutter_tmp = bpy.data.objects.new('temp-drive-cutter', ob_drive_cutter.data.copy())
+
+        ob_drive_cutter_tmp.scale = (scale_factor, scale_factor, scale_factor)
+        object_transform_apply(ob_drive_cutter_tmp)
+
+        # S for Socket or Slot (depending on drive type)
+        s_width = cls.s_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_drive_cutter_tmp, s_width, ob_drive_cutter_tmp.dimensions.z)
+
+        if cls.drive_offset != 0:
+            if cls.head_type is not None:
+                _, head_height = cls.head_dim_get(size_designator)
+                ob_drive_cutter_tmp.location.z = head_height
+            else:
+                ob_drive_cutter_tmp.location.z = cls.drive_offset * scale_factor
+
+        ob_drive_cutter.hide_viewport = True
+
+        return ob_drive_cutter_tmp
 
 
 class ISO_7380(ButtonHead, MetricScrew, SocketDrive):
