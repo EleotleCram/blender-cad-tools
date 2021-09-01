@@ -2,6 +2,8 @@
 
 ## Changelog
 
+### 1.0.2
+
    * Moved Screw.`screw_drive_cutter_construct` down to class SocketDrive and Screw.`screw_head_construct` to class ScrewHead
    * Moved all "Head" classes together
    * Switched to autopep8 1.5.8pre
