@@ -2,6 +2,10 @@
 
 ## Changelog
 
+   * Moved Screw.`screw_drive_cutter_construct` down to class SocketDrive and Screw.`screw_head_construct` to class ScrewHead
+   * Moved all "Head" classes together
+   * Switched to autopep8 1.5.8pre
+
 ### 1.0.1
 
    * 'Mark as fastener' now retains the exact Object name, if it already matches the required Template name (e.g. it matches, but has a dup postfix like .001, .002 etc.)
