@@ -300,7 +300,9 @@ class ACT_OT_object_origin_set(bpy.types.Operator):
         for modifier in all_boolean_modifiers_with_active_childof_constraints:
             remove_boolean_childof_constraint(obj, modifier)
 
-        if self.type == 'ORIGIN_TO_0Z':
+        if self.type == 'ORIGIN_TO_MAXZ':
+            self.origin_to_top(obj, keep_location=True)
+        elif self.type == 'ORIGIN_TO_0Z':
             self.origin_to_bottom(obj, keep_location=True)
         else:
             bpy.ops.object.origin_set(type=self.type)
@@ -311,10 +313,10 @@ class ACT_OT_object_origin_set(bpy.types.Operator):
         return {'FINISHED'}
 
     # Source: https://blender.stackexchange.com/questions/182063/how-to-add-a-submenu-to-object-set-origin-in-blender-2-83#answer-182082
-    def origin_to_bottom(self, obj, keep_location=True, matrix=Matrix()):
+    def origin_to_minmax(self, obj, keep_location=True, matrix=Matrix(), op='min'):
         local_verts = [matrix @ Vector(v[:]) for v in obj.bound_box]
         origin = sum(local_verts, Vector()) / 8
-        origin.z = min(v.z for v in local_verts)
+        origin.z = min(v.z for v in local_verts) if op == 'min' else max(v.z for v in local_verts)
         origin = matrix.inverted() @ origin
 
         mesh_data = obj.data
@@ -324,6 +326,11 @@ class ACT_OT_object_origin_set(bpy.types.Operator):
             matrix_world = obj.matrix_world
             matrix_world.translation = matrix_world @ origin
 
+    def origin_to_top(self, obj, keep_location=True, matrix=Matrix()):
+        self.origin_to_minmax(obj, keep_location, matrix, 'max')
+
+    def origin_to_bottom(self, obj, keep_location=True, matrix=Matrix()):
+        self.origin_to_minmax(obj, keep_location, matrix, 'min')
 
 class ACT_MT_object_origin_set(bpy.types.Menu):
     bl_label = "Set Origin (Parent Only)"
@@ -338,6 +345,7 @@ class ACT_MT_object_origin_set(bpy.types.Menu):
                         text='Origin to Center of Mass (Surface)').type = 'ORIGIN_CENTER_OF_MASS'
         layout.operator(ACT_OT_object_origin_set.bl_idname,
                         text='Origin to Center of Mass (Volume)').type = 'ORIGIN_CENTER_OF_VOLUME'
+        layout.operator(ACT_OT_object_origin_set.bl_idname, text='Origin to Top Center').type = 'ORIGIN_TO_MAXZ'
         layout.operator(ACT_OT_object_origin_set.bl_idname, text='Origin to Bottom Center').type = 'ORIGIN_TO_0Z'
 
 
