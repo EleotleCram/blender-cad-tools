@@ -92,14 +92,16 @@ def depsgraph_update_objects_find(update):
 
 
 class BMeshFromEvaluated(object):
-    def __init__(self, ob_src, ob_tgt = None):
+    def __init__(self, ob_src, ob_tgt=None):
         self.ob_src = ob_src
         self.ob_tgt = ob_tgt if ob_tgt is not None else ob_src
         self.bme = bmesh.new()
+
     def __enter__(self):
         ob_evaluated = self.ob_src.evaluated_get(bpy.context.evaluated_depsgraph_get())
         self.bme.from_mesh(ob_evaluated.data)
         return self.bme
+
     def __exit__(self, type, value, traceback):
         self.bme.to_mesh(self.ob_tgt.data)
         self.bme.free()
@@ -199,7 +201,6 @@ def cad_fast_object_free_name_get(ob_fastener, ob_fastener_tpl):
             if ob_fastener_name not in bpy.data.objects:
                 print("Free fastener name:", ob_fastener_name)
                 return ob_fastener_name
-
 
 
 def cad_fast_object_update(ob_fastener, ob_fastener_tpl):
@@ -388,56 +389,6 @@ class Screw(Fastener):
     length = 8
 
     @classmethod
-    def screw_head_construct(cls, size_designator):
-        ob_head = bpy.data.objects[cls.head_type]
-        ob_head.hide_viewport = False
-
-        ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
-
-        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
-        with BMeshFromEvaluated(ob_head, ob_head_tmp) as bme:
-            pass
-
-        ob_head.hide_viewport = True
-
-        width, height = cls.head_dim_get(size_designator)
-        object_dimensions_from_width_and_height_set(ob_head_tmp, width, height)
-
-        # Heads should be at origin, but this allows for absolute (AKA non-scaled)
-        # fine-tuned offsets to avoid Boolean mess ups:
-        ob_head_tmp.matrix_world = Matrix.Translation(ob_head.location.copy())
-
-        return ob_head_tmp
-
-    @classmethod
-    def screw_drive_cutter_construct(cls, size_designator):
-        diam = cls.diameter_get(size_designator)
-        scale_factor = diam / 5
-
-        ob_drive_cutter = bpy.data.objects[cls.drive_type]
-        ob_drive_cutter.hide_viewport = False
-
-        ob_drive_cutter_tmp = bpy.data.objects.new('temp-drive-cutter', ob_drive_cutter.data.copy())
-
-        ob_drive_cutter_tmp.scale = (scale_factor, scale_factor, scale_factor)
-        object_transform_apply(ob_drive_cutter_tmp)
-
-        # S for Socket or Slot (depending on drive type)
-        s_width = cls.s_dim_get(size_designator)
-        object_dimensions_from_width_and_height_set(ob_drive_cutter_tmp, s_width, ob_drive_cutter_tmp.dimensions.z)
-
-        if cls.drive_offset != 0:
-            if cls.head_type is not None:
-                _, head_height = cls.head_dim_get(size_designator)
-                ob_drive_cutter_tmp.location.z = head_height
-            else:
-                ob_drive_cutter_tmp.location.z = cls.drive_offset * scale_factor
-
-        ob_drive_cutter.hide_viewport = True
-
-        return ob_drive_cutter_tmp
-
-    @classmethod
     def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
         diam = cls.diameter_get(size_designator)
@@ -473,7 +424,31 @@ class MetricScrew(Screw, Metric):
     master_template = 'M5 Screw Template'
 
 
-class RoundScrewHead:
+class ScrewHead:
+    @classmethod
+    def screw_head_construct(cls, size_designator):
+        ob_head = bpy.data.objects[cls.head_type]
+        ob_head.hide_viewport = False
+
+        ob_head_tmp = bpy.data.objects.new('temp-screw-head', ob_head.data.copy())
+
+        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
+        with BMeshFromEvaluated(ob_head, ob_head_tmp) as bme:
+            pass
+
+        ob_head.hide_viewport = True
+
+        width, height = cls.head_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_head_tmp, width, height)
+
+        # Heads should be at origin, but this allows for absolute (AKA non-scaled)
+        # fine-tuned offsets to avoid Boolean mess ups:
+        ob_head_tmp.matrix_world = Matrix.Translation(ob_head.location.copy())
+
+        return ob_head_tmp
+
+
+class RoundScrewHead(ScrewHead):
     @classmethod
     def head_dim_get(cls, size_designator):
         dim = cls.dimensions[size_designator]
@@ -483,6 +458,11 @@ class RoundScrewHead:
 class ButtonHead(RoundScrewHead):
     head_type = 'Button Head'
     drive_offset = -2.8
+
+
+class PanHead(RoundScrewHead):
+    head_type = 'Pan Head'
+    drive_offset = -2
 
 
 class CountersunkHead(RoundScrewHead):
@@ -504,14 +484,7 @@ class CountersunkHead(RoundScrewHead):
                 ob.cad_outline.sharp_angle = sharp_angle
 
 
-class SocketDrive:
-    @classmethod
-    def s_dim_get(cls, size_designator):
-        dim = cls.dimensions[size_designator]
-        return dim['s']
-
-
-class HexHead:
+class HexHead(ScrewHead):
     head_type = 'Hex Head'
     drive_offset = -2
 
@@ -519,6 +492,41 @@ class HexHead:
     def head_dim_get(cls, size_designator):
         dim = cls.dimensions[size_designator]
         return (dim['s'], dim['k'])
+
+
+class SocketDrive:
+    @classmethod
+    def s_dim_get(cls, size_designator):
+        dim = cls.dimensions[size_designator]
+        return dim['s']
+
+    @classmethod
+    def screw_drive_cutter_construct(cls, size_designator):
+        diam = cls.diameter_get(size_designator)
+        scale_factor = diam / 5
+
+        ob_drive_cutter = bpy.data.objects[cls.drive_type]
+        ob_drive_cutter.hide_viewport = False
+
+        ob_drive_cutter_tmp = bpy.data.objects.new('temp-drive-cutter', ob_drive_cutter.data.copy())
+
+        ob_drive_cutter_tmp.scale = (scale_factor, scale_factor, scale_factor)
+        object_transform_apply(ob_drive_cutter_tmp)
+
+        # S for Socket or Slot (depending on drive type)
+        s_width = cls.s_dim_get(size_designator)
+        object_dimensions_from_width_and_height_set(ob_drive_cutter_tmp, s_width, ob_drive_cutter_tmp.dimensions.z)
+
+        if cls.drive_offset != 0:
+            if cls.head_type is not None:
+                _, head_height = cls.head_dim_get(size_designator)
+                ob_drive_cutter_tmp.location.z = head_height
+            else:
+                ob_drive_cutter_tmp.location.z = cls.drive_offset * scale_factor
+
+        ob_drive_cutter.hide_viewport = True
+
+        return ob_drive_cutter_tmp
 
 
 class ISO_7380(ButtonHead, MetricScrew, SocketDrive):
@@ -698,13 +706,71 @@ class DIN_934_1(MetricNut):
     }
 
 
+class HexSocketPanHeadSleeveNut(PanHead, Metric, Screw, SocketDrive):
+    standard = 'HexSocketPanHeadSleeveNut'
+    master_template = 'M5 Sleeve Nut Template'
+    name_template = '${size_designator}X${length} ${drive_type} ${head_type} Sleeve Nut'
+    drive_type = 'Hex Socket'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'OD': 3.9, 'dk': 8.4,  'k': 1.8, 's': 2.5},
+        'M4':   {'OD': 4.9, 'dk': 8.6,  'k': 1.9, 's': 2.5},
+        'M5':   {'OD': 5.9, 'dk': 10.5, 'k': 2.2, 's': 3},
+        'M6':   {'OD': 7.9, 'dk': 13.2, 'k': 2.6, 's': 4},
+        'M8':   {'OD': 9.9, 'dk': 16.2, 'k': 3,   's': 5},
+        # autopep8: on
+    }
+
+    @classmethod
+    def diameter_get(cls, size_designator):
+        return cls.dimensions[size_designator]['OD']
+
+    @classmethod
+    def metric_diameter_get(cls, size_designator):
+        return float(size_designator[1:])
+
+    @classmethod
+    def bore_construct(cls, size_designator, length):
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore.hide_viewport = False
+
+        ob_bore_tmp = bpy.data.objects.new('temp-screw-head', ob_bore.data.copy())
+
+        # BMeshFromEvaluated reads evaluated mesh from ob_head and writes to ob_head_tmp.
+        with BMeshFromEvaluated(ob_bore, ob_bore_tmp):
+            pass
+
+        ob_bore.hide_viewport = True
+
+        diam_bore = 0.9 * cls.metric_diameter_get(size_designator)  # 0.9 -> minor thread approximation
+
+        object_dimensions_from_width_and_height_set(ob_bore_tmp, diam_bore, 2.5 * length)
+
+        location_bore = ob_bore.location.copy()
+        location_bore.z = -0.5 * diam_bore  # Prevent socket drive and bore overlap
+        ob_bore_tmp.matrix_world = Matrix.Translation(location_bore)
+
+        return ob_bore_tmp
+
+    @classmethod
+    def construct(cls, ob_fastener_tpl, ob):
+
+        super(HexSocketPanHeadSleeveNut, cls).construct(ob_fastener_tpl, ob)
+
+        size_designator = cls.attr(ob, "size_designator")
+        length = float(cls.attr(ob, "length"))
+        ob_bore = cls.bore_construct(size_designator, length)
+
+        ob_fastener_tpl.modifiers['Bore'].object = ob_bore
+
+
 class T_NUT(MetricNut):
     @classmethod
     def construct(cls, ob_fastener_tpl, ob):
         size_designator = cls.attr(ob, "size_designator")
-        diam = 0.9 * cls.diameter_get(size_designator) # 0.9 -> minor thread approximation
+        diam = 0.9 * cls.diameter_get(size_designator)  # 0.9 -> minor thread approximation
 
-        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['Bore']
+        ob_bore = bpy.data.collections['CAD Fastener Bool Tools'].objects['T-Nut Bore']
         ob_bore.dimensions = (diam, diam, 10)
         object_transform_apply(ob_bore)
 
@@ -722,10 +788,38 @@ class DROP_IN_T_NUT_2020(T_NUT):
     }
 
 
+class DROP_IN_T_NUT_3030(T_NUT):
+    name_template = '3030 ${size_designator} Drop In T-Nut'
+    master_template = '3030 Drop In T-Nut'
+    standard = 'DROP_IN_T_NUT_3030'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 5.5, 'h': 2.4},
+        'M4':   {'s': 7,   'h': 3.2},
+        'M5':   {'s': 8,   'h': 4},
+        'M6':   {'s': 10,  'h': 5},
+        # autopep8: on
+    }
+
+
 class SLIDING_T_NUT_2020(T_NUT):
     name_template = '2020 ${size_designator} Sliding T-Nut'
     master_template = '2020 Sliding T-Nut'
     standard = 'SLIDING_T_NUT_2020'
+    dimensions = {
+        # autopep8: off
+        'M3':   {'s': 9.8, 'h': 4.5},
+        'M4':   {'s': 9.8, 'h': 4.5},
+        'M5':   {'s': 9.8, 'h': 4.5},
+        'M6':   {'s': 9.8, 'h': 4.5},
+        # autopep8: on
+    }
+
+
+class SLIDING_T_NUT_3030(T_NUT):
+    name_template = '3030 ${size_designator} Sliding T-Nut'
+    master_template = '3030 Sliding T-Nut'
+    standard = 'SLIDING_T_NUT_3030'
     dimensions = {
         # autopep8: off
         'M3':   {'s': 9.8, 'h': 4.5},
@@ -753,6 +847,10 @@ CAD_FAST_STD_ENUM = [
     ('ISO_4026', "Set Screw (ISO 4026)", 'A Metric set screw'),
     ('DROP_IN_T_NUT_2020', "Drop In T-Nut (2020)", 'A Drop In T-Nut for a 2020 extrusion'),
     ('SLIDING_T_NUT_2020', "Sliding T-Nut (2020)", 'A Sliding T-Nut for a 2020 extrusion'),
+    ('DROP_IN_T_NUT_3030', "Drop In T-Nut (3030)", 'A Drop In T-Nut for a 3030 extrusion'),
+    ('SLIDING_T_NUT_3030', "Sliding T-Nut (3030)", 'A Sliding T-Nut for a 3030 extrusion'),
+    ('HexSocketPanHeadSleeveNut', "Hex Socket Pan head sleeve nut",
+     'A sleeve nut with a Pan head and a hex socket drive')
 ]
 
 CAD_FAST_STD_TYPES = {
@@ -766,6 +864,9 @@ CAD_FAST_STD_TYPES = {
     'ISO_4026': ISO_4026,
     'DROP_IN_T_NUT_2020': DROP_IN_T_NUT_2020,
     'SLIDING_T_NUT_2020': SLIDING_T_NUT_2020,
+    'DROP_IN_T_NUT_3030': DROP_IN_T_NUT_3030,
+    'SLIDING_T_NUT_3030': SLIDING_T_NUT_3030,
+    'HexSocketPanHeadSleeveNut': HexSocketPanHeadSleeveNut,
 }
 
 CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
@@ -774,13 +875,13 @@ CAD_FAST_METRIC_AVAILABLE_LENGTHS_IN = {
     'M3': (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50),
     'M4': (5, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60),
     'M5': (6, 8, 10, 12, 14, 16, 18, 20, 25,
-            30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80),
+           30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80),
     'M6': (8, 10, 12, 14, 16, 18, 20, 25, 30, 35,
-            40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+           40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M8': (12, 14, 16, 18, 20, 25, 30, 35, 40,
-            45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+           45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M10': (16, 18, 20, 25, 30, 35, 40, 45,
-             50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
+            50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M12': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M14': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
     'M16': (20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100, 120),
@@ -982,6 +1083,7 @@ def unregister():
 
     del bpy.types.Object.cad_fast
     del bpy.types.Scene.cad_fasteners_blend_timestamp
+
 
 if __name__ == "__main__":
     register()
