@@ -460,15 +460,14 @@ def cad_mesh_dimensions_draw(self, context):
         row.prop(ob.cad_mesh_dimensions, 'orientation')
         row.label(text="", icon='BLANK1')
         row.label(text="", icon='BLANK1')
-
         orientation = transform_orientation_get(ob)
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column()
+        row = col.row(align=True)
+        row.use_property_decorate = False
         if orientation not in ['GLOBAL', 'NORMAL']:
-            col = layout.column()
-            row = col.row(align=True)
-            row().label(text="The orientation mode '%s'" % orientation.capitalize(), icon='ERROR')
-            row().label(text="in the Blender tool settings is not")
-            row().label(text="supported, defaulting to 'Global'.")
-            row.label(text="", icon='BLANK1')
+            row.label(text="'%s' mode unsupported. Using 'Global'." % orientation.capitalize(), icon='ERROR')
     if context.mode == 'OBJECT' or context.mode == 'EDIT_MESH':
         layout = self.layout
         layout.use_property_split = True
