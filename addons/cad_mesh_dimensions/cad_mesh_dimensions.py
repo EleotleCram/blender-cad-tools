@@ -1,22 +1,12 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  CAD Mesh Dimensions - Quickly view and edit dimensions of selected elements in a mesh
-#  Copyright (C) 2020  Marcel Toele
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-# ##### END GPL LICENSE BLOCK #####
+bl_info = {
+    "name": "CAD Mesh Dimensions",
+    "author": "Marcel Toele",
+    "version": (1, 1, 2),
+    "blender": (4, 0, 0),
+    "location": "View3D",
+    "description": "Quickly view and edit dimensions of selected elements in a mesh",
+    "category": "3D View"
+}
 
 import sys
 import site
@@ -28,17 +18,6 @@ import bpy
 import numpy as np
 from mathutils import Vector
 
-bl_info = {
-    "name": "CAD Mesh Dimensions",
-    "author": "Marcel Toele",
-    "version": (1, 1, 1),
-    "blender": (2, 80, 0),
-    "location": "View3D",
-    "description": "Quickly view and edit dimensions of selected elements in a mesh",
-    "category": "3D View"
-}
-
-
 ########### Automatic PIP Dependency Installation ###########
 
 sys.path.append(site.getusersitepackages())
@@ -47,8 +26,11 @@ try:
     import xxhash
 except:
     import subprocess
-
-    pybin = bpy.app.binary_path_python
+    
+    if bpy.app.version < (2,91,0):
+        pybin = bpy.app.binary_path_python
+    else:
+        pybin = sys.executable
 
     try:
         # upgrade pip
@@ -350,7 +332,6 @@ def edit_dimensions(new_x, new_y, new_z):
     # Restore the 3D cursor location
     bpy.context.scene.cursor.location = orig_cursor_location
 
-
 ############# Blender Event Handlers ##############
 
 
@@ -400,58 +381,114 @@ CAD_DIM_TRANSFORM_ORIENTATION_ENUM = [
         'Align the orientation to whatever is currently configured as the Transformation Orientation in the Tool Settings', 'BLENDER', 2)
 ]
 
+def update_object_dimensions(self, context):
+    obj = context.active_object
+    if context.selected_objects:
+        obj.dimensions = self.placeholder_dimensions
+
 
 class CAD_DIM_ObjectProperties(bpy.types.PropertyGroup):
     anchor: bpy.props.EnumProperty(
-        name="Transform Anchor Point",
+        name="Anchor",
         description="Anchor Point for CAD Mesh Dimensions Transformations",
         items=CAD_DIM_TRANSFORM_ANCHOR_POINT_ENUM,
-        default='OBJECT_ORIGIN'
+        default='OBJECT_ORIGIN',
     )
     orientation: bpy.props.EnumProperty(
-        name="Transformation Orientation",
+        name="Orientation",
         description="Orientation for CAD Mesh Dimensions Transformations",
         items=CAD_DIM_TRANSFORM_ORIENTATION_ENUM,
-        default='TOOL_SETTINGS'
+        default='NORMAL',
     )
 
-
-class CAD_DIM_PT_MeshTools(bpy.types.Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Item"
-    bl_label = "CAD Mesh Dimensions"
-    bl_options = {'DEFAULT_CLOSED'}
+# Define a custom operator to apply the scale
+class CAD_DIM_OT_ApplyScale(bpy.types.Operator):
+    """Apply the scale of the selected object"""
+    bl_idname = "object.cad_dim_apply_scale"
+    bl_label = "Apply Scale"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return cad_mesh_dimensions_is_enabled(context.object)
+        return context.active_object is not None
 
-    def draw(self, context):
-        layout = self.layout
-
+    def execute(self, context):
         ob = context.object
-        wm = context.window_manager
+        original_mode = ob.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        bpy.ops.object.mode_set(mode=original_mode)
+        return {'FINISHED'}
 
-        box = layout.box()
-        box.prop(wm, 'cad_mesh_dimensions')
-        row = box.row()
-        row.label(text="Transform Anchor Point:")
-        row.prop(ob.cad_mesh_dimensions, 'anchor', icon_only=True)
-        row = box.row()
-        row.label(text="Transform Orientation:")
-        row.prop(ob.cad_mesh_dimensions, 'orientation', icon_only=True)
+def cad_mesh_dimensions_draw(self, context):
+    layout = self.layout
+    layout.use_property_split = True
+
+    ob = context.object
+    wm = context.window_manager
+
+    # Display CAD Mesh Dimensions functionality
+    col = layout.column()
+    row = col.row(align=True)
+    if context.mode == 'OBJECT':
+        obj = context.active_object
+        # Display Dynamic Dimensions functionality
+        if context.selected_objects:
+            row.prop(obj, "dimensions", text="Dimensions")
+            row.use_property_decorate = False
+        else:
+            row.prop(context.scene, "placeholder_dimensions", text="Dimensions")
+            row.use_property_decorate = False
+        row.label(text="", icon='BLANK1')
+    elif context.mode == 'EDIT_MESH':
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column()
+        row = col.row(align=True)
+        row.prop(wm, 'cad_mesh_dimensions', text = "Dimensions")
+        row.label(text="", icon='BLANK1')
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column()
+        row = col.row(align=True)
+        row.use_property_decorate = False
+        row.prop(ob.cad_mesh_dimensions, 'anchor')
+        row.label(text="", icon='BLANK1')
+        row.label(text="", icon='BLANK1')
+        row = col.row(align=True)
+        row.use_property_decorate = False
+        row.prop(ob.cad_mesh_dimensions, 'orientation')
+        row.label(text="", icon='BLANK1')
+        row.label(text="", icon='BLANK1')
 
         orientation = transform_orientation_get(ob)
         if orientation not in ['GLOBAL', 'NORMAL']:
-            box.row().label(text="The orientation mode '%s'" % orientation.capitalize(), icon='ERROR')
-            box.row().label(text="in the Blender tool settings is not")
-            box.row().label(text="supported, defaulting to 'Global'.")
+            col = layout.column()
+            row = col.row(align=True)
+            row().label(text="The orientation mode '%s'" % orientation.capitalize(), icon='ERROR')
+            row().label(text="in the Blender tool settings is not")
+            row().label(text="supported, defaulting to 'Global'.")
+            row.label(text="", icon='BLANK1')
+    if context.mode == 'OBJECT' or context.mode == 'EDIT_MESH':
+        layout = self.layout
+        layout.use_property_split = True
+        # Manually creating a split layout
+        col = layout.column()
+        row = col.row(align=True)
+        row.alignment = 'RIGHT'
+        if ob.scale != Vector((1.0, 1.0, 1.0)):
+            row.alert = True
+            row.operator("object.cad_dim_apply_scale", text="! Apply Scale !", icon='ERROR')
+        else:
+            row.enabled = False
+            row.operator("object.cad_dim_apply_scale", text="Scale Applied", icon='CHECKMARK')
+        row.label(text="", icon='BLANK1')
+        row.label(text="", icon='BLANK1')
+
 
 
 classes = [
     CAD_DIM_ObjectProperties,
-    CAD_DIM_PT_MeshTools,
 ]
 
 
@@ -484,9 +521,19 @@ handle = None
 def register():
     for c in classes:
         bpy.utils.register_class(c)
+    bpy.types.OBJECT_PT_transform.prepend(cad_mesh_dimensions_draw)
+    bpy.utils.register_class(CAD_DIM_OT_ApplyScale)
+    bpy.types.Scene.placeholder_dimensions = bpy.props.FloatVectorProperty(
+        name="",
+        default=(0, 0, 0),
+        subtype='XYZ',
+        unit='LENGTH',
+        precision=4,
+        update=update_object_dimensions,
+    )
 
     bpy.types.WindowManager.cad_mesh_dimensions = bpy.props.FloatVectorProperty(
-        name="Dimensions:",
+        name="",
         min=0,
         default=(0, 0, 0),
         subtype='XYZ',
@@ -507,7 +554,8 @@ def register():
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
-
+    bpy.utils.unregister_class(CAD_DIM_OT_ApplyScale)
+    bpy.types.OBJECT_PT_transform.remove(cad_mesh_dimensions_draw)
     del bpy.types.WindowManager.cad_mesh_dimensions
     del bpy.types.Object.cad_mesh_dimensions
 
